@@ -28,7 +28,21 @@ sequenceDiagram
     Engine --> Host: "readyok"
     deactivate Engine
 
+    Host ->> Engine: "ucinewgame"
+    activate Engine
+    Engine ->> Position: Position.startPos() // reset position to starting
+    Engine -->> Host: (ack no response required)
+    deactivate Engine
 
-
+    Host ->> Engine: "position startpos moves e2e4 e7e5 ..."
+    activate Engine
+    Engine ->> Parser: parse "position ..." (detect startpos (or fen))
+    Parser ->> Position: create Position (startPos (or fromFEN))
+    loop for each move token
+        Parser ->> MoveObj: Move.fromUci("e2e4")
+        MoveObj ->> Position: Position = Position = Position.makeMove(Move)
+    end
+    Engine -->> Host: (no response required)
+    deactivate Engine
 
 ```
