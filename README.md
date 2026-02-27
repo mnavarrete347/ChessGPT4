@@ -14,8 +14,19 @@ sequenceDiagram
     participant Rule as RuleChecker (isSquareAttacked / inCheck)
     participant MoveObj as Move (Move.fromUci / toUci)
 
-
-
+    
+    Host ->> Engine: "uci"
+    activate Engine
+    Engine ->> Engine: parse "uci"
+    Engine -->> Host: "id name <engine>"
+    Engine -->> Host: "id author <author>"
+    Engine -->> Host: "uciok"
+    deactivate Engine
+    Host -->> Engine: "isready"
+    activate Engine
+    Engine --> Engine: parse "isready"
+    Engine --> Host: "readyok"
+    deactivate Engine
 
 
 
