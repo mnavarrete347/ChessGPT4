@@ -35,5 +35,17 @@ sequenceDiagram
     Engine ->> Position: Position.startPos()
     Engine -->> Host: (ack)
     deactivate Engine
+
+    Host ->> Engine: "position startpos moves e2e4"
+    activate Engine
+    Engine ->> Parser: parse "position..."
+    Parser ->> Position: create Position(startPos)
+    
+    loop for each move token
+        Parser ->> MoveObj: Move.fromUci("e2e4")
+        MoveObj -->> Parser: Move object
+        Parser ->> Position: Position.makeMove(Move)
+    end
+    deactivate Engine
      
 ```
