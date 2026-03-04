@@ -22,5 +22,18 @@ sequenceDiagram
     Engine -->> Host: "uciok"
     deactivate Engine
 
+    Host ->> Engine: "isready"
+    activate Engine
+    Engine ->> Engine: parse "isready"
+    Engine -->> Host: "readyok"
+    deactivate Engine
+
+    %% New Game and Position Setup
+    Note over Host, Position: Setup Board
+    Host ->> Engine: "ucinewgame"
+    activate Engine
+    Engine ->> Position: Position.startPos()
+    Engine -->> Host: (ack)
+    deactivate Engine
      
 ```
