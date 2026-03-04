@@ -47,5 +47,27 @@ sequenceDiagram
         Parser ->> Position: Position.makeMove(Move)
     end
     deactivate Engine
-     
+
+
+%% Move Generation with Rule Checker Logic [cite: 147, 154, 157, 160]
+    Note over Host, Rule: Thinking & Rule Checking
+    Host ->> Engine: "go movetime 10000"
+    activate Engine
+    Engine ->> Parser: parse "go" options
+
+    Engine ->> MoveGen: legalMoves = Position.legalMoves()
+    activate MoveGen
+
+    loop for each pseudo-legal move
+        MoveGen ->> Rule: isSquareAttacked(kingSquare)
+        activate Rule
+        Rule -->> MoveGen: boolean (inCheck)
+        deactivate Rule
+
+        Note right of MoveGen: If move is valid, add to list
+    end
+
+    MoveGen -->> Engine: returns legalMoves list [cite: 147, 161]
+    deactivate MoveGen
+
 ```
