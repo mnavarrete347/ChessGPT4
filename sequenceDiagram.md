@@ -33,41 +33,58 @@ sequenceDiagram
     Host ->> Engine: "ucinewgame"
     activate Engine
     Engine ->> Position: Position.startPos()
-    Engine -->> Host: (ack)
+    Engine -->> Host: (ack no response required)
     deactivate Engine
 
-    Host ->> Engine: "position startpos moves e2e4"
+    Host ->> Engine: "position startpos moves e2e4 e7e5 ..."
     activate Engine
-    Engine ->> Parser: parse "position..."
-    Parser ->> Position: create Position(startPos)
+    Engine ->> Parser: parse "position..." (detect startpos or fen)
+    Parser ->> Position: create Position(startPos) (startPos or fromFEN)
     
     loop for each move token
         Parser ->> MoveObj: Move.fromUci("e2e4")
         MoveObj -->> Parser: Move object
-        Parser ->> Position: Position.makeMove(Move)
+        Parser ->> Position: Position = Position.makeMove(Move)
     end
+    Engine -->> Host: (no response required)
     deactivate Engine
 
 
-%% Move Generation with Rule Checker Logic [cite: 147, 154, 157, 160]
+    %% Move Generation with Rule Checker Logic
     Note over Host, Rule: Thinking & Rule Checking
     Host ->> Engine: "go movetime 10000"
     activate Engine
-    Engine ->> Parser: parse "go" options
-
+    Engine ->> Parser: parse "go" options (movetime/wtime/etc.)
     Engine ->> MoveGen: legalMoves = Position.legalMoves()
     activate MoveGen
 
     loop for each pseudo-legal move
-        MoveGen ->> Rule: isSquareAttacked(kingSquare)
+        MoveGen ->> Rule: makeMove(pseudoMove)
         activate Rule
-        Rule -->> MoveGen: boolean (inCheck)
-        deactivate Rule
 
-        Note right of MoveGen: If move is valid, add to list
+        Rule ->> Rule: kingSquare = findKing()
+        Rule ->> Rule: attacked = isSquareAttacked(kingSquare)
+        Rule ->> Rule: pieceSquare, pieceType = findMovingPiece()
+        Rule ->> Rule: outOfBounds = moveOutOfBounds(pieceSquare, Move)
+        Rule ->> Rule: legalPieceMove = checkMoveByPieceType(pieceType)
+
+        alt [!attacked && !outOfBounds && legalPieceMove]
+            Rule -->> MoveGen: move is legal
+            activate MoveGen
+            MoveGen ->> MoveGen: evaluateMove(position)
+            MoveGen ->> MoveGen: moveScore = evaluateBoard()
+            MoveGen ->> MoveGen: addToLegalMoveList(moveScore)
+            deactivate MoveGen
+        else [attacked || outOfBounds || !legalPieceMove]
+            Rule -->> MoveGen: move rejected
+            Rule ->> Rule: undoMove()
+        end
+
+        deactivate Rule
     end
 
-    MoveGen -->> Engine: returns legalMoves list [cite: 147, 161]
+    MoveGen ->> MoveGen: sort legalMoveList by score (bestmove first)
+    MoveGen -->> Engine: returns legalMoves list
     deactivate MoveGen
 
 ```
