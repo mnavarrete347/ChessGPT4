@@ -87,4 +87,17 @@ sequenceDiagram
     MoveGen -->> Engine: returns legalMoves list
     deactivate MoveGen
 
+
+%% Selecting and Sending Move
+    Engine ->> Engine: choose best move
+    Engine ->> MoveObj: selectedMove.toUci()
+    Engine -->> Host: "bestmove e2e4"
+    deactivate Engine
+
+    %% Shutdown
+    Host ->> Engine: "quit"
+    activate Engine
+    Engine ->> Engine: cleanup and exit
+    Engine -->> Host: (process ends)
+    deactivate Engine
 ```
