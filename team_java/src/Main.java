@@ -20,12 +20,12 @@ public class Main {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
-    // state variables / game flags
-    static boolean whiteKingSideCastle;
-    static boolean whiteQueenSideCastle;
-    static boolean blackKingSideCastle;
-    static boolean blackQueenSideCastle;
 
+    /**
+     * Main method that deals with communication and game logic.
+     * Uses BufferedReader and PrintWriter to communicate over streams
+     *
+     */
     public static void main(String[] args) throws Exception {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out)), true);
@@ -63,6 +63,13 @@ public class Main {
         out.flush();
     }
 
+    /**
+     * Parses the position UCI command into tokens which are processed step by step
+     *
+     * @param cmd String that directly comes from UCI chess arena
+     * @param currentPos Position object that contains the previous state of the internal chess board
+     * @return pos A new position object with the updated board after making moves
+     */
     private static Position parsePosition(String cmd, Position currentPos) {
         // UCI formats:
         // position startpos [moves ...]
@@ -80,14 +87,15 @@ public class Main {
             i++;
             // FEN has 6 fields
             StringBuilder fen = new StringBuilder();
+            StringBuilder fenCastling = new StringBuilder();
             // remake the fen string
             for (int k = 0; k < 6 && i < tokens.length; k++, i++) {
                 if (k > 0) fen.append(' ');
                 fen.append(tokens[i]);
+                if (k == 2)  fenCastling.append(tokens[i]);
             }
             // pass fen string to make board position
             pos = Position.fromFEN(fen.toString());
-            setCastlingRights(fen.toString());
         }
 
         // if third token is "moves"
@@ -103,13 +111,6 @@ public class Main {
         return pos;
     }
 
-    private static void setCastlingRights(String fenCastling) {
-        whiteKingSideCastle  = fenCastling.contains("K");
-        whiteQueenSideCastle = fenCastling.contains("Q");
-        blackKingSideCastle  = fenCastling.contains("k");
-        blackQueenSideCastle = fenCastling.contains("q");
-    }
-
     // ---------------- Chess core ----------------
     /* Rand & File to index table for real board
        File	a	b	c	d	e	f	g	h
@@ -122,6 +123,11 @@ public class Main {
         3	16	17	18	19	20	21	22	23
         2	8	9	10	11	12	13	14	15
         1	0	1	2	3	4	5	6	7
+     */
+
+    /**
+     * Move class contains from index, to index and a character that determines piece promotion
+     *
      */
     static final class Move {
         final int from; // 0..63
@@ -178,22 +184,70 @@ public class Main {
         1	8	9	10	11	12	13	14	15
         0	0	1	2	3	4	5	6	7
      */
+
+    /**
+     * Position class contains a character array represneting all 64 squares on the board
+     * and which side it is to move
+     */
     static final class Position {
         // board: '.' empty, pieces: PNBRQK for white, pnbrqk for black
         final char[] currentBoard = new char[64];
+        // game states of each board
         final boolean whiteToMove;
+        final boolean whiteKingSideCastle;
+        final boolean whiteQueenSideCastle;
+        final boolean blackKingSideCastle;
+        final boolean blackQueenSideCastle;
 
-        Position(char[] board, boolean wtm) {
+        Position(char[] board, boolean wtm,
+                 boolean wK, boolean wQ, boolean bK, boolean bQ) {
             System.arraycopy(board, 0, currentBoard, 0, 64);
             this.whiteToMove = wtm;
+            this.whiteKingSideCastle = wK;
+            this.whiteQueenSideCastle = wQ;
+            this.blackKingSideCastle = bK;
+            this.blackQueenSideCastle = bQ;
         }
+
+        static void printBoardWithIndices(char[] board) {
+            System.out.println();
+
+            for (int rank = 7; rank >= 0; rank--) {
+                System.out.print((rank + 1) + "  ");
+
+                for (int file = 0; file < 8; file++) {
+                    int index = rank * 8 + file;
+                    char piece = board[index];
+
+                    System.out.printf("%2s ", piece);
+                }
+
+                System.out.print("   ");
+
+                // Print indices
+                for (int file = 0; file < 8; file++) {
+                    int index = rank * 8 + file;
+                    System.out.printf("%2d ", index);
+                }
+
+                System.out.println();
+            }
+
+            System.out.println("\n   a  b  c  d  e  f  g  h\n");
+        }
+
 
         // black at top of board, white at bottom of board
         static Position startPos() {
-            return fromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1");
-        }
+            return fromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        } // "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-        // create a position object (board + turn) from fen string
+        /**
+         * Creates a position object (board + turn) from fen string
+         *
+         * @param fen String that contains the FEN input command
+         * @return new Postion object with board and turn set up as in the FEN string
+         */
         static Position fromFEN(String fen) {
             // split string using spaces
             String[] fenTokens = fen.trim().split("\\s+");
@@ -223,10 +277,16 @@ public class Main {
                     file++;
                 }
             }
-            return new Position(board, wtm);
+            boolean[] cRights = setCastlingRights(fenTokens[3]);
+            // printBoardWithIndices(board);
+            return new Position(board, wtm, cRights[0], cRights[1], cRights[2], cRights[3]);
         }
 
-        // swaps character between to and from
+        /**
+         * Swaps character between to and from, also checks and makes castling moves
+         *
+         * @param m Move object containing movement data used to update the board
+         */
         Position makeMove(Move m) {
             char[] newBoard = Arrays.copyOf(currentBoard, 64);
             // store piece and put empty char in place
@@ -239,13 +299,75 @@ public class Main {
             }
             // put the piece at the to index
             newBoard[m.to] = placed;
-            return new Position(newBoard, !whiteToMove);
+
+            // Castling
+            // copy castling rights of current board
+            boolean wK = whiteKingSideCastle;
+            boolean wQ = whiteQueenSideCastle;
+            boolean bK = blackKingSideCastle;
+            boolean bQ = blackQueenSideCastle;
+            // if king moves remove castling rights
+            if (piece == 'K') {
+                wK = false;
+                wQ = false;
+            }
+            if (piece == 'k') {
+                bK = false;
+                bQ = false;
+            }
+            // if rook moves for the first time, remove rights
+            if (m.from == 0) wQ = false;
+            if (m.from == 7) wK = false;
+            if (m.from == 56) bQ = false;
+            if (m.from == 63) bK = false;
+            // if rook gets captured while in their initial square, remove rights
+            if (m.to == 0) wQ = false;
+            if (m.to == 7) wK = false;
+            if (m.to == 56) bQ = false;
+            if (m.to == 63) bK = false;
+            // move the rook if a castling move occurs
+            // white king-side
+            if (piece == 'K' && m.from == 4 && m.to == 6) {
+                newBoard[7] = '.';
+                newBoard[5] = 'R';
+            }
+            // white queen-side
+            if (piece == 'K' && m.from == 4 && m.to == 2) {
+                newBoard[0] = '.';
+                newBoard[3] = 'R';
+            }
+            // black king-side
+            if (piece == 'k' && m.from == 60 && m.to == 62) {
+                newBoard[63] = '.';
+                newBoard[61] = 'r';
+            }
+            // black queen-side
+            if (piece == 'k' && m.from == 60 && m.to == 58) {
+                newBoard[56] = '.';
+                newBoard[59] = 'r';
+            }
+
+            return new Position(newBoard, !whiteToMove, wK, wQ, bK, bQ);
+        }
+
+        /**
+         * Sets the game state flags according to FEN input command
+         *
+         * @param fenCastling String that contains the FEN input command
+         */
+        static boolean[] setCastlingRights(String fenCastling) {
+            boolean wk = fenCastling.contains("K");
+            boolean wQ = fenCastling.contains("Q");
+            boolean bK = fenCastling.contains("k");
+            boolean bQ = fenCastling.contains("q");
+            return new boolean[]{wk, wQ, bK, bQ};
         }
 
         // goes through pseudo-legal moves to see if any move puts the King in check
         List<Move> legalMoves() {
             List<Move> out = new ArrayList<>();
             for (Move m : pseudoLegalMoves()) {
+                // System.out.println(m.from + ", " + m.to + ", " + m.promo);
                 // make the move to test it
                 Position newPos = makeMove(m);
                 // add the move if the move does not end in check of the King
@@ -443,15 +565,15 @@ public class Main {
                         break;
 
                     case 'B':
-                        genBishop(moveList, squareIndex, isWhitePiece);
+                        genSlidingPieces(moveList, squareIndex, isWhitePiece, BISHOP_DIRECTIONS);
                         break;
 
                     case 'R':
-                        genRook(moveList, squareIndex, isWhitePiece);
+                        genSlidingPieces(moveList, squareIndex, isWhitePiece, ROOK_DIRECTIONS);
                         break;
 
                     case 'Q':
-                        genQueen(moveList, squareIndex, isWhitePiece);
+                        genSlidingPieces(moveList, squareIndex, isWhitePiece, QUEEN_DIRECTIONS);
                         break;
 
                     case 'K':
@@ -471,15 +593,11 @@ public class Main {
 
         }
 
-        void genBishop(List<Move> moveList, int fromSquare, boolean isWhite) {
-
-        }
-
-        void genRook(List<Move> moveList, int fromSquare, boolean isWhite) {
+        void genSlidingPieces(List<Move> moveList, int fromSquare, boolean isWhite, int[][] directions) {
             int rank = fromSquare / 8;
             int file = fromSquare % 8;
 
-            for (int[] dir : ROOK_DIRECTIONS) {
+            for (int[] dir : directions) {
                 int fileStep = dir[0];
                 int rankStep = dir[1];
 
@@ -509,45 +627,45 @@ public class Main {
             }
         }
 
-        void genQueen(List<Move> moveList, int fromSquare, boolean isWhite) {
-
-        }
-
         void genKing(List<Move> moveList, int fromSquare, boolean isWhite) {
             // normal king moves...
 
-
             // Castling
-            if (isWhite) {
+            // Redundant check to see if king is in the correct position to castle
+            if (isWhite && fromSquare == 4 && currentBoard[4] == 'K') {
                 // King-side (e1 → g1)
                 if (whiteKingSideCastle && currentBoard[5] == '.' && currentBoard[6] == '.' &&
                         !isSquareAttacked(4, false) &&
                         !isSquareAttacked(5, false) &&
-                        !isSquareAttacked(6, false)) {
+                        !isSquareAttacked(6, false) &&
+                        currentBoard[7] == 'R') {
                     moveList.add(new Move(4, 6, '0')); // e1g1
                 }
                 // Queen-side (e1 → c1)
                 if (whiteQueenSideCastle && currentBoard[1] == '.' && currentBoard[2] == '.' && currentBoard[3] == '.' &&
                         !isSquareAttacked(4, false) &&
                         !isSquareAttacked(3, false) &&
-                        !isSquareAttacked(2, false)) {
+                        !isSquareAttacked(2, false) &&
+                        currentBoard[0] == 'R') {
                     moveList.add(new Move(4, 2, '0')); // e1c1
                 }
-
-            } else {
+            }
+            // For black king
+            if (!isWhite && fromSquare == 60 && currentBoard[60] == 'k') {
                 // Black king-side (e8 → g8)
                 if (blackKingSideCastle && currentBoard[61] == '.' && currentBoard[62] == '.' &&
                         !isSquareAttacked(60, true) &&
                         !isSquareAttacked(61, true) &&
-                        !isSquareAttacked(62, true)) {
+                        !isSquareAttacked(62, true) &&
+                        currentBoard[63] == 'r') {
                     moveList.add(new Move(60, 62, '0')); // e8g8
                 }
-
                 // Black queen-side (e8 → c8)
                 if (blackQueenSideCastle && currentBoard[57] == '.' && currentBoard[58] == '.' && currentBoard[59] == '.' &&
                         !isSquareAttacked(60, true) &&
                         !isSquareAttacked(59, true) &&
-                        !isSquareAttacked(58, true)) {
+                        !isSquareAttacked(58, true) &&
+                        currentBoard[56] == 'r') {
                     moveList.add(new Move(60, 58, '0')); // e8c8
                 }
             }
