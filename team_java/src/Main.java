@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Minimal UCI engine: plays the first legal move it finds.
- * Legal move generation is included (no castling, no en-passant; promotions -> queen only).
+ * UCI engine: uses alpha-beta pruning to find bestmove.
+ * Legal move generation, promotion, and castling are included (no en-passant).
  */
 public class Main {
     // sliding piece directions
@@ -20,10 +20,15 @@ public class Main {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
+    // Parameters for move searching
+    static int max_depth = 100;
+    static long startTime;
+    static long timeLimit;
+    static long moveTimeMs = 10000; // 10 sec default time
 
     /**
      * Main method that deals with communication and game logic.
-     * Uses BufferedReader and PrintWriter to communicate over streams
+     * Uses BufferedReader and PrintWriter to communicate over character streams
      *
      */
     public static void main(String[] args) throws Exception {
@@ -47,14 +52,13 @@ public class Main {
                 pos = Position.startPos();
             } else if (line.startsWith("position")) {
                 pos = parsePosition(line, pos);
+                Position.printBoardWithIndices(pos.currentBoard);
             } else if (line.startsWith("go")) {
-                List<Move> moves = pos.legalMoves();
-                if (moves.isEmpty()) {
-                    out.println("bestmove 0000");
-                } else {
-                    Move m = moves.get(0);
-                    out.println("bestmove " + m.toUci());
-                }
+                parseGo(line);
+                Move m = iterativeDepthSearch(pos);
+                if (m == null) out.println("bestmove 0000");
+                else out.println("bestmove " + m.toUci());
+                Position.printBoardWithIndices(pos.makeMove(m).currentBoard);
             } else if (line.equals("quit")) {
                 break;
             }
@@ -111,19 +115,219 @@ public class Main {
         return pos;
     }
 
-    // ---------------- Chess core ----------------
-    /* Rand & File to index table for real board
-       File	a	b	c	d	e	f	g	h
-       Rank
-        8	56	57	58	59	60	61	62	63
-        7	48	49	50	51	52	53	54	55
-        6	40	41	42	43	44	45	46	47
-        5	32	33	34	35	36	37	38	39
-        4	24	25	26	27	28	29	30	31
-        3	16	17	18	19	20	21	22	23
-        2	8	9	10	11	12	13	14	15
-        1	0	1	2	3	4	5	6	7
+    static void parseGo(String cmd) {
+        String[] tokens = cmd.trim().split("\\s+");
+
+        // Example inputs:
+        // "go"
+        // "go movetime 5000"
+        // "go depth 5"
+
+        for (int i = 1; i < tokens.length; i++) {
+
+            switch (tokens[i].toLowerCase()) {
+                case "movetime":
+                    if (i + 1 < tokens.length) {
+                        moveTimeMs = Integer.parseInt(tokens[i + 1]);
+                        i++; // skip value
+                    }
+                    break;
+
+                case "depth":
+                    if (i + 1 < tokens.length) {
+                        max_depth = Integer.parseInt(tokens[i + 1]);
+                        i++; // skip value
+                    }
+                    break;
+
+                default:
+                    moveTimeMs = 10000;
+                    max_depth = 100;
+                    break;
+            }
+        }
+    }
+
+    static Move iterativeDepthSearch(Position position) {
+        startTime = System.currentTimeMillis();
+        timeLimit = (long)(moveTimeMs * 0.85); // safety margin
+
+        Move bestMove = null;
+
+        for (int depth = 1; depth <= max_depth; depth++) {
+
+            Move currentBest = findBestMove(position, depth, bestMove);
+
+            if (System.currentTimeMillis() - startTime > timeLimit) {
+                break;
+            }
+
+            bestMove = currentBest;
+        }
+
+        return bestMove;
+    }
+
+    /**
+     * Finds the bestmove by looping through all legal moves.
+     * At each loop, the move is made and the board is scored using alphaBeta method.
+     * Retains previous best move from top layer and prunes
+     *
+     * @return bestmove - highest scoring move is returned for white and the lowest for black
      */
+    static Move findBestMove(Position position, int depth, Move prevBest) {
+        List<Move> moves = position.legalMoves();
+
+        // check for worst case
+        if (moves.isEmpty()) return null;
+        // order moves for first depth layer
+        orderMoves(position, moves);
+
+        // prioritize previous best move by pushing it to top of search tree
+        if (prevBest != null && moves.contains(prevBest)) {
+            moves.remove(prevBest);
+            moves.addFirst(prevBest);
+        }
+
+        Move bestMove = null;
+        // Integer.MIN_VALUE and Integer.MAX_VALUE are constants that represent -∞ and +∞
+        int bestScore = position.whiteToMove ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+
+        // for each move, makes the move and scores the board state using alphaBeta pruning
+        for (Move m : moves) {
+            // stop searching if time limit is reached
+            if (System.currentTimeMillis() - startTime > timeLimit) break;
+
+            Position next = position.makeMove(m);
+
+            int score = alphaBeta(next, depth - 1, Integer.MIN_VALUE, Integer.MAX_VALUE, !position.whiteToMove);
+
+            if (position.whiteToMove) {
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = m;
+                }
+            } else {
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestMove = m;
+                }
+            }
+        }
+        if (bestMove != null) {
+            System.out.println("Move: " + bestMove.toUci() + " Score: " + bestScore + " Depth: " +  depth);
+        }
+        return bestMove;
+    }
+
+    /**
+     * Explores the legal moves and finds the best move via min-max algorithm.
+     * Uses alpha and beta values to prune branches and speed up evaluation time.
+     * Stops recursion if time limit is reached.
+     *
+     * @return value of the moves at each recursion and the score of the board at base case.
+     */
+    static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
+        List<Move> moves = pos.legalMoves();
+        // base cases
+        if (System.currentTimeMillis() - startTime > timeLimit) return evaluate(pos);
+        if (depth == 0) return evaluate(pos);
+        // possible exception
+        if (moves.isEmpty()) return evaluate(pos); // or checkmate logic later
+
+        // pruning is faster when the best moves are at the top of the list for each layer searched
+        orderMoves(pos, moves);
+
+        if (maximizing) {
+            int value = Integer.MIN_VALUE;
+            for (Move m : moves) {
+                value = Math.max(value,
+                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, false));
+                alpha = Math.max(alpha, value);
+                if (alpha >= beta) break; // prune
+            }
+            return value;
+        } else {
+            int value = Integer.MAX_VALUE;
+            for (Move m : moves) {
+                value = Math.min(value,
+                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, true));
+                beta = Math.min(beta, value);
+                if (beta <= alpha) break; // prune
+            }
+            return value;
+        }
+    }
+
+    /**
+     * Sorts moves by comparing two moves by using custom scoring math.
+     * sorted moves are returned by largest score first.
+     * 
+     * @param position - position object with board information
+     * @param moves - list of moves that are legal
+     */
+    static void orderMoves(Position position, List<Move> moves) {
+        
+        moves.sort((a, b) -> {
+            int scoreA = weightedMoveScore(position, a);
+            int scoreB = weightedMoveScore(position, b);
+
+            return Integer.compare(scoreB, scoreA); // descending
+        });
+    }
+
+    static int weightedMoveScore(Position pos, Move move) {
+
+        char target = pos.currentBoard[move.to];
+
+        // prioritize captures
+        if (target != '.') {
+            return pieceValue(target) * 10;
+        }
+        // prioritize promotions
+        if (move.promo != '0') {
+            return 900;
+        }
+        return 0;
+    }
+
+    /**
+     * Evaluates the board based on existing pieces.
+     * Same side pieces add points and opposite side pieces take away points.
+     * Incentivizes moves that capture opposite side pieces.
+     *
+     * @return score integer between 4200 and -4200, 0 at startpos
+     */
+    static int evaluate(Position pos) {
+        int score = 0;
+
+        for (char p : pos.currentBoard) {
+            if (p == '.') continue;
+
+            int value = pieceValue(p);
+
+            if (Character.isUpperCase(p)) {
+                score += value;
+            } else {
+                score -= value;
+            }
+        }
+
+        return score;
+    }
+
+    // simple method that assign each piece a value
+    static int pieceValue(char p) {
+        return switch (Character.toUpperCase(p)) {
+            case 'P' -> 100;
+            case 'N' -> 300;
+            case 'B' -> 300;
+            case 'R' -> 500;
+            case 'Q' -> 900;
+            case 'K' -> 10000;
+            default -> 0;
+        };
+    }
 
     /**
      * Move class contains from index, to index and a character that determines piece promotion
@@ -172,18 +376,6 @@ public class Main {
 
     // Class that uses fen format to keep track of moves internally
     // has a board and turn data
-    /* Rand & File to index table for internal board
-       File	0	1	2	3	4	5	6	7
-       Rank
-        7	56	57	58	59	60	61	62	63
-        6	48	49	50	51	52	53	54	55
-        5	40	41	42	43	44	45	46	47
-        4	32	33	34	35	36	37	38	39
-        3	24	25	26	27	28	29	30	31
-        2	16	17	18	19	20	21	22	23
-        1	8	9	10	11	12	13	14	15
-        0	0	1	2	3	4	5	6	7
-     */
 
     /**
      * Position class contains a character array represneting all 64 squares on the board
@@ -235,7 +427,6 @@ public class Main {
 
             System.out.println("\n   a  b  c  d  e  f  g  h\n");
         }
-
 
         // black at top of board, white at bottom of board
         static Position startPos() {
@@ -418,19 +609,6 @@ public class Main {
             }
 
             // knights
-            // knights have fixed offsets relative to squareIndex
-            /* Example showcase of knightOffsets
-               File	0	1	2	3	4	5	6	7
-               Rank
-                7	.	.	.	.	.	.	.	.
-                6	.	.	.	.	.	.	.	.
-                5	.	.	.	.	.	.	.	.
-                4	.	.	15	.	17	.	.	.
-                3	.	6	.	.	.	10	.	.
-                2	.	.	-	Sq	+	.	.	.
-                1	.  -10	.	.	.  -6	.	.
-                0	.	.  -17	.  -15	.	.	.
-             */
             int[] knightOffsets = {-17, -15, -10, -6, 6, 10, 15, 17};
             for (int offset : knightOffsets) {
                 int targetIndex = squareIndex + offset;
@@ -441,19 +619,7 @@ public class Main {
                 int targetFile = targetIndex % 8;
                 int rankDiff = Math.abs(targetRank - rank);
                 int fileDiff = Math.abs(targetFile - file);
-                /* Example showcase of warparound knightOffsets
-                   File	0	1	2	3	4	5	6	7
-                   Rank
-                    7	.	.	.	.	.	.	.	.
-                    6	.	.	.	.	.	.	.	.
-                    5	.	.	.	.	.	.	.	.
-                    4	.	17	.	.	.	.	.	.
-                    3	.	.	10	.	.	.	.	15
-                    2	Sq	+	.	.	.	.	6	.
-                    1	.   .  -6	.	.   .	.	-
-                    0	.  -15   .	.   .	.  -10	.
-                    only 17, 10, -6, -15 are valid, -17 is out of bound, and 15, 6, -10 are warparounds
-                */
+
                 // Validate correct L-shape movement (prevents wraparound)
                 if (!((rankDiff == 1 && fileDiff == 2) || (rankDiff == 2 && fileDiff == 1))) continue;
                 // check the check at the correct offsets
