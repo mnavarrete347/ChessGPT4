@@ -620,7 +620,7 @@ public class Main {
                 int targetRank = rank + (isWhite ? 1 : -1); //to get correct correct rank, (if its white it is 1 if not its -1 because the colors matter in which direction going)
                 if (targetRank < 0 || targetRank >7) continue; //if out of bounds rank skip iteration of loop
 
-                int toSquare = targetRank * 8 + targetRank; //this gives us a value in our 1D array for what square to go
+                int toSquare = targetRank * 8 + targetFile; //this gives us a value in our 1D array for what square to go
                 char targetPiece = currentBoard[toSquare]; //here we check what is there
 
                 if (targetPiece == '.') continue; //if its empty continue/skip iteration since there is nothing to capture making it illegal to move there
