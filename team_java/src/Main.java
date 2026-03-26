@@ -691,12 +691,12 @@ public class Main {
 
                     if (piece == '.') {
                         // Empty square => normal move
-                        moveList.add(new Move(fromSquare, toSquare, '0'));
+                        moveList.add(new Move(fromSquare, toSquare, (char) 0));
                     } else {
                         boolean isTargetWhite = Character.isUpperCase(piece);
                         if (isTargetWhite != isWhite) {
                             // Enemy piece => capture
-                            moveList.add(new Move(fromSquare, toSquare, '0'));
+                           moveList.add(new Move(fromSquare, toSquare, (char) 0));
                         }
                         // Stop sliding after hitting any piece
                         break;
