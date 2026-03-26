@@ -709,7 +709,26 @@ public class Main {
 
         void genKing(List<Move> moveList, int fromSquare, boolean isWhite) {
             // normal king moves...
+            for (int dr = -1; dr <= 1; dr++) {
+                for (int df = -1; df <= 1; df++) {
+                    if (dr == 0 && df == 0) {
+                        continue;
+                    }
+                    int nr = r + dr;
+                    int nf = f + df;
 
+                    if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) {
+                        continue;
+                    }
+                    int to = nr * 8 + nf;
+                    char target = currentBoard[to];
+
+                    // for empty square or an opponents piece
+                    if (target == '.' || Character.isUpperCase(target) != white) {
+                        ms.add(new Move(from, to, (char)0));
+                    }
+                }
+            }
             // Castling
             // Redundant check to see if king is in the correct position to castle
             if (isWhite && fromSquare == 4 && currentBoard[4] == 'K') {
