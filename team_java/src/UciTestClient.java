@@ -12,7 +12,7 @@ public class UciTestClient {
     public static void main(String[] args) {
         try {
             // Start your engine process
-            Process process = new ProcessBuilder("java", "-cp", "src", "Main").redirectErrorStream(true).start();
+            Process process = new ProcessBuilder("java", "-cp", "bin", "Main").redirectErrorStream(true).start();
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
