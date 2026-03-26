@@ -761,50 +761,49 @@ public class Main {
 
             int oneForward = fromSquare + forwardStep; //space that is oneForward from current square
 
-            if (oneForward >= 0 && oneForward < 64 && currentBoard[oneForward] == '.'){ //checks if the move is legal (if it stays on board and if it is on to an empty space)
-                if (rank == promotionRank){
+            if (oneForward >= 0 && oneForward < 64 && currentBoard[oneForward] == '.') { //checks if the move is legal (if it stays on board and if it is on to an empty space)
+                if (rank == promotionRank) {
                     moveList.add(new Move(fromSquare, oneForward, 'q')); //promotion list
                     moveList.add(new Move(fromSquare, oneForward, 'n'));
                     moveList.add(new Move(fromSquare, oneForward, 'b'));
                     moveList.add(new Move(fromSquare, oneForward, 'r'));
-                }
-                else {
+                } else {
                     moveList.add(new Move(fromSquare, oneForward, (char) 0)); //else if its not promoting just move up one space and no promo
                 }
 
                 int twoForward = fromSquare + (2 * forwardStep); //calculates space in the array which would be two forward
-                if (rank == startRank && twoForward >=0 && twoForward <64 && currentBoard[twoForward] == '.'){ //makes sure space is empty, in bounds, and pawn is on starting rank.
+                if (rank == startRank && twoForward >= 0 && twoForward < 64 && currentBoard[twoForward] == '.') { //makes sure space is empty, in bounds, and pawn is on starting rank.
                     moveList.add(new Move(fromSquare, twoForward, (char) 0)); //if conditions are met you can move two spaces up.
                 }
             }
 
-            int [] captureFileSteps = {-1,1}; //diagonally would be up and to the left or to the right. thats what this is for.
+            int[] captureFileSteps = {-1, 1}; //diagonally would be up and to the left or to the right. thats what this is for.
             for (int fileStep : captureFileSteps) { //runs for every filestep in captureFileSteps
                 int targetFile = file + fileStep; //to get the correct file for capturing
-                if (targetFile <0 || targetFile > 7) continue; //if outside board bounds it will skip current iteration
+                if (targetFile < 0 || targetFile > 7) continue; //if outside board bounds it will skip current iteration
 
                 int targetRank = rank + (isWhite ? 1 : -1); //to get correct correct rank, (if its white it is 1 if not its -1 because the colors matter in which direction going)
-                if (targetRank < 0 || targetRank >7) continue; //if out of bounds rank skip iteration of loop
+                if (targetRank < 0 || targetRank > 7) continue; //if out of bounds rank skip iteration of loop
 
                 int toSquare = targetRank * 8 + targetRank; //this gives us a value in our 1D array for what square to go
                 char targetPiece = currentBoard[toSquare]; //here we check what is there
 
-                if (targetPiece == '.') continue; //if its empty continue/skip iteration since there is nothing to capture making it illegal to move there
+                if (targetPiece == '.')
+                    continue; //if its empty continue/skip iteration since there is nothing to capture making it illegal to move there
 
                 boolean isTargetWhite = Character.isUpperCase(targetPiece); //checks to see if piece is uppercase(white) or lowercase(black)
-                if(isTargetWhite != isWhite){ //condition stating that if the piece colors are not the same then ....
-                    if (rank == promotionRank){ //if rank is a promotion rank then lets add possible promotions
+                if (isTargetWhite != isWhite) { //condition stating that if the piece colors are not the same then ....
+                    if (rank == promotionRank) { //if rank is a promotion rank then lets add possible promotions
                         moveList.add(new Move(fromSquare, toSquare, 'q'));
                         moveList.add(new Move(fromSquare, toSquare, 'n'));
                         moveList.add(new Move(fromSquare, toSquare, 'b'));
                         moveList.add(new Move(fromSquare, toSquare, 'r'));//add more promos
-                    }
-                    else{
-                        moveList.add(new Move(fromSquare, toSquare, (char) 0 )); //if its not a promotion rank then just capture and dont promote
+                    } else {
+                        moveList.add(new Move(fromSquare, toSquare, (char) 0)); //if its not a promotion rank then just capture and dont promote
                     }
                 }
             }
-        
+        }
 
         void genKnight(List<Move> moveList, int fromSquare, boolean isWhite) {
 
