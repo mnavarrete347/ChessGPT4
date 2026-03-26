@@ -806,7 +806,35 @@ public class Main {
         }
 
         void genKnight(List<Move> moveList, int fromSquare, boolean isWhite) {
+            int rank = fromSquare / 8;
+            int file = fromSquare % 8;
 
+            int[][] knightMoves = {
+                    {1, 2}, {2, 1},
+                    {2, -1}, {1, -2},
+                    {-1, -2}, {-2, -1},
+                    {-2, 1}, {-1, 2}
+            };
+
+            for (int[] move : knightMoves) {
+                int targetFile = file + move[0];
+                int targetRank = rank + move[1];
+
+                if (targetFile < 0 || targetFile > 7 || targetRank < 0 || targetRank > 7) continue;
+
+                int toSquare = targetRank * 8 + targetFile;
+                char targetPiece = currentBoard[toSquare];
+
+                if (targetPiece == '.') {
+                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
+                    continue;
+                }
+
+                boolean isTargetWhite = Character.isUpperCase(targetPiece);
+                if (isTargetWhite != isWhite) {
+                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
+                }
+            }
         }
 
         void genSlidingPieces(List<Move> moveList, int fromSquare, boolean isWhite, int[][] directions) {
@@ -827,12 +855,12 @@ public class Main {
 
                     if (piece == '.') {
                         // Empty square => normal move
-                        moveList.add(new Move(fromSquare, toSquare, '0'));
+                        moveList.add(new Move(fromSquare, toSquare, (char) 0));
                     } else {
                         boolean isTargetWhite = Character.isUpperCase(piece);
                         if (isTargetWhite != isWhite) {
                             // Enemy piece => capture
-                            moveList.add(new Move(fromSquare, toSquare, '0'));
+                            moveList.add(new Move(fromSquare, toSquare, (char) 0));
                         }
                         // Stop sliding after hitting any piece
                         break;
