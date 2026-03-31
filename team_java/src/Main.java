@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Minimal UCI engine: plays the first legal move it finds.
- * Legal move generation is included (no castling, no en-passant; promotions -> queen only).
+ * UCI engine: uses alpha-beta pruning to find bestmove.
+ * Legal move generation, promotion, and castling are included (no en-passant).
  */
 public class Main {
     // sliding piece directions
@@ -20,10 +20,15 @@ public class Main {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
+    // Parameters for move searching
+    static int max_depth = 100;
+    static long startTime;
+    static long timeLimit;
+    static long moveTimeMs = 10000; // 10 sec default time
 
     /**
      * Main method that deals with communication and game logic.
-     * Uses BufferedReader and PrintWriter to communicate over streams
+     * Uses BufferedReader and PrintWriter to communicate over character streams
      *
      */
     public static void main(String[] args) throws Exception {
@@ -47,14 +52,14 @@ public class Main {
                 pos = Position.startPos();
             } else if (line.startsWith("position")) {
                 pos = parsePosition(line, pos);
+                Position.printBoardWithIndices(pos.currentBoard);
             } else if (line.startsWith("go")) {
-                List<Move> moves = pos.legalMoves();
-                if (moves.isEmpty()) {
-                    out.println("bestmove 0000");
-                } else {
-                    Move m = moves.get(0);
-                    out.println("bestmove " + m.toUci());
-                }
+                //parseGo(line);
+                //Move m = iterativeDepthSearch(pos);
+                Move m = null;
+                if (m == null) out.println("bestmove 0000");
+                else out.println("bestmove " + m.toUci());
+                Position.printBoardWithIndices(pos.makeMove(m).currentBoard);
             } else if (line.equals("quit")) {
                 break;
             }
@@ -111,19 +116,7 @@ public class Main {
         return pos;
     }
 
-    // ---------------- Chess core ----------------
-    /* Rand & File to index table for real board
-       File	a	b	c	d	e	f	g	h
-       Rank
-        8	56	57	58	59	60	61	62	63
-        7	48	49	50	51	52	53	54	55
-        6	40	41	42	43	44	45	46	47
-        5	32	33	34	35	36	37	38	39
-        4	24	25	26	27	28	29	30	31
-        3	16	17	18	19	20	21	22	23
-        2	8	9	10	11	12	13	14	15
-        1	0	1	2	3	4	5	6	7
-     */
+    // Here goes move searching code
 
     /**
      * Move class contains from index, to index and a character that determines piece promotion
@@ -172,18 +165,6 @@ public class Main {
 
     // Class that uses fen format to keep track of moves internally
     // has a board and turn data
-    /* Rand & File to index table for internal board
-       File	0	1	2	3	4	5	6	7
-       Rank
-        7	56	57	58	59	60	61	62	63
-        6	48	49	50	51	52	53	54	55
-        5	40	41	42	43	44	45	46	47
-        4	32	33	34	35	36	37	38	39
-        3	24	25	26	27	28	29	30	31
-        2	16	17	18	19	20	21	22	23
-        1	8	9	10	11	12	13	14	15
-        0	0	1	2	3	4	5	6	7
-     */
 
     /**
      * Position class contains a character array represneting all 64 squares on the board
@@ -235,7 +216,6 @@ public class Main {
 
             System.out.println("\n   a  b  c  d  e  f  g  h\n");
         }
-
 
         // black at top of board, white at bottom of board
         static Position startPos() {
@@ -418,19 +398,6 @@ public class Main {
             }
 
             // knights
-            // knights have fixed offsets relative to squareIndex
-            /* Example showcase of knightOffsets
-               File	0	1	2	3	4	5	6	7
-               Rank
-                7	.	.	.	.	.	.	.	.
-                6	.	.	.	.	.	.	.	.
-                5	.	.	.	.	.	.	.	.
-                4	.	.	15	.	17	.	.	.
-                3	.	6	.	.	.	10	.	.
-                2	.	.	-	Sq	+	.	.	.
-                1	.  -10	.	.	.  -6	.	.
-                0	.	.  -17	.  -15	.	.	.
-             */
             int[] knightOffsets = {-17, -15, -10, -6, 6, 10, 15, 17};
             for (int offset : knightOffsets) {
                 int targetIndex = squareIndex + offset;
@@ -441,19 +408,7 @@ public class Main {
                 int targetFile = targetIndex % 8;
                 int rankDiff = Math.abs(targetRank - rank);
                 int fileDiff = Math.abs(targetFile - file);
-                /* Example showcase of warparound knightOffsets
-                   File	0	1	2	3	4	5	6	7
-                   Rank
-                    7	.	.	.	.	.	.	.	.
-                    6	.	.	.	.	.	.	.	.
-                    5	.	.	.	.	.	.	.	.
-                    4	.	17	.	.	.	.	.	.
-                    3	.	.	10	.	.	.	.	15
-                    2	Sq	+	.	.	.	.	6	.
-                    1	.   .  -6	.	.   .	.	-
-                    0	.  -15   .	.   .	.  -10	.
-                    only 17, 10, -6, -15 are valid, -17 is out of bound, and 15, 6, -10 are warparounds
-                */
+
                 // Validate correct L-shape movement (prevents wraparound)
                 if (!((rankDiff == 1 && fileDiff == 2) || (rankDiff == 2 && fileDiff == 1))) continue;
                 // check the check at the correct offsets
@@ -595,54 +550,54 @@ public class Main {
 
             int oneForward = fromSquare + forwardStep; //space that is oneForward from current square
 
-            if (oneForward >= 0 && oneForward < 64 && currentBoard[oneForward] == '.'){ //checks if the move is legal (if it stays on board and if it is on to an empty space)
-                if (rank == promotionRank){
+            if (oneForward >= 0 && oneForward < 64 && currentBoard[oneForward] == '.') { //checks if the move is legal (if it stays on board and if it is on to an empty space)
+                if (rank == promotionRank) {
                     moveList.add(new Move(fromSquare, oneForward, 'q')); //promotion list
                     moveList.add(new Move(fromSquare, oneForward, 'n'));
                     moveList.add(new Move(fromSquare, oneForward, 'b'));
                     moveList.add(new Move(fromSquare, oneForward, 'r'));
-                }
-                else {
+                } else {
                     moveList.add(new Move(fromSquare, oneForward, (char) 0)); //else if its not promoting just move up one space and no promo
                 }
 
                 int twoForward = fromSquare + (2 * forwardStep); //calculates space in the array which would be two forward
-                if (rank == startRank && twoForward >=0 && twoForward <64 && currentBoard[twoForward] == '.'){ //makes sure space is empty, in bounds, and pawn is on starting rank.
+                if (rank == startRank && twoForward >= 0 && twoForward < 64 && currentBoard[twoForward] == '.') { //makes sure space is empty, in bounds, and pawn is on starting rank.
                     moveList.add(new Move(fromSquare, twoForward, (char) 0)); //if conditions are met you can move two spaces up.
                 }
             }
 
-            int [] captureFileSteps = {-1,1}; //diagonally would be up and to the left or to the right. thats what this is for.
+            int[] captureFileSteps = {-1, 1}; //diagonally would be up and to the left or to the right. thats what this is for.
             for (int fileStep : captureFileSteps) { //runs for every filestep in captureFileSteps
                 int targetFile = file + fileStep; //to get the correct file for capturing
-                if (targetFile <0 || targetFile > 7) continue; //if outside board bounds it will skip current iteration
+                if (targetFile < 0 || targetFile > 7) continue; //if outside board bounds it will skip current iteration
 
                 int targetRank = rank + (isWhite ? 1 : -1); //to get correct correct rank, (if its white it is 1 if not its -1 because the colors matter in which direction going)
-                if (targetRank < 0 || targetRank >7) continue; //if out of bounds rank skip iteration of loop
+                if (targetRank < 0 || targetRank > 7) continue; //if out of bounds rank skip iteration of loop
 
                 int toSquare = targetRank * 8 + targetFile; //this gives us a value in our 1D array for what square to go
                 char targetPiece = currentBoard[toSquare]; //here we check what is there
 
-                if (targetPiece == '.') continue; //if its empty continue/skip iteration since there is nothing to capture making it illegal to move there
+                if (targetPiece == '.')
+                    continue; //if its empty continue/skip iteration since there is nothing to capture making it illegal to move there
 
                 boolean isTargetWhite = Character.isUpperCase(targetPiece); //checks to see if piece is uppercase(white) or lowercase(black)
-                if(isTargetWhite != isWhite){ //condition stating that if the piece colors are not the same then ....
-                    if (rank == promotionRank){ //if rank is a promotion rank then lets add possible promotions
+                if (isTargetWhite != isWhite) { //condition stating that if the piece colors are not the same then ....
+                    if (rank == promotionRank) { //if rank is a promotion rank then lets add possible promotions
                         moveList.add(new Move(fromSquare, toSquare, 'q'));
                         moveList.add(new Move(fromSquare, toSquare, 'n'));
                         moveList.add(new Move(fromSquare, toSquare, 'b'));
                         moveList.add(new Move(fromSquare, toSquare, 'r'));//add more promos
-                    }
-                    else{
-                        moveList.add(new Move(fromSquare, toSquare, (char) 0 )); //if its not a promotion rank then just capture and dont promote
+                    } else {
+                        moveList.add(new Move(fromSquare, toSquare, (char) 0)); //if its not a promotion rank then just capture and dont promote
                     }
                 }
             }
-        
+        }
 
         void genKnight(List<Move> moveList, int fromSquare, boolean isWhite) {
             int rank = fromSquare / 8;
             int file = fromSquare % 8;
+<<<<<<< HEAD
         
             int[][] knightMoves = {
                     {1, 2}, {2, 1},
@@ -670,7 +625,35 @@ public class Main {
                     moveList.add(new Move(fromSquare, toSquare, (char) 0));
                 }
             }
+=======
+>>>>>>> 292197b009e18759608d7b012d3cdf434005faae
 
+            int[][] knightMoves = {
+                    {1, 2}, {2, 1},
+                    {2, -1}, {1, -2},
+                    {-1, -2}, {-2, -1},
+                    {-2, 1}, {-1, 2}
+            };
+
+            for (int[] move : knightMoves) {
+                int targetFile = file + move[0];
+                int targetRank = rank + move[1];
+
+                if (targetFile < 0 || targetFile > 7 || targetRank < 0 || targetRank > 7) continue;
+
+                int toSquare = targetRank * 8 + targetFile;
+                char targetPiece = currentBoard[toSquare];
+
+                if (targetPiece == '.') {
+                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
+                    continue;
+                }
+
+                boolean isTargetWhite = Character.isUpperCase(targetPiece);
+                if (isTargetWhite != isWhite) {
+                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
+                }
+            }
         }
 
         void genSlidingPieces(List<Move> moveList, int fromSquare, boolean isWhite, int[][] directions) {
@@ -696,7 +679,11 @@ public class Main {
                         boolean isTargetWhite = Character.isUpperCase(piece);
                         if (isTargetWhite != isWhite) {
                             // Enemy piece => capture
+<<<<<<< HEAD
                            moveList.add(new Move(fromSquare, toSquare, (char) 0));
+=======
+                            moveList.add(new Move(fromSquare, toSquare, (char) 0));
+>>>>>>> 292197b009e18759608d7b012d3cdf434005faae
                         }
                         // Stop sliding after hitting any piece
                         break;
@@ -708,7 +695,14 @@ public class Main {
         }
 
         void genKing(List<Move> moveList, int fromSquare, boolean isWhite) {
+<<<<<<< HEAD
             // normal king moves...
+=======
+            int r = fromSquare / 8;
+            int f = fromSquare % 8;
+
+            // Regular King piece movement one square
+>>>>>>> 292197b009e18759608d7b012d3cdf434005faae
             for (int dr = -1; dr <= 1; dr++) {
                 for (int df = -1; df <= 1; df++) {
                     if (dr == 0 && df == 0) {
@@ -716,6 +710,22 @@ public class Main {
                     }
                     int nr = r + dr;
                     int nf = f + df;
+<<<<<<< HEAD
+=======
+
+                    if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) {
+                        continue;
+                    }
+                    int to = nr * 8 + nf;
+                    char target = currentBoard[to];
+
+                    // for empty square or an opponents piece
+                    if (target == '.' || Character.isUpperCase(target) != isWhite) {
+                        moveList.add(new Move(fromSquare, to, (char)0));
+                    }
+                }
+            }
+>>>>>>> 292197b009e18759608d7b012d3cdf434005faae
 
                     if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) {
                         continue;
