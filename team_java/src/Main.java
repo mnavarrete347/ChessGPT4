@@ -267,6 +267,34 @@ public class Main {
         }
     }
 
+    
+    static void orderMoves(Position position, List<Move> moves) {
+        
+        moves.sort((a, b) -> {
+            int scoreA = weightedMoveScore(position, a);
+            int scoreB = weightedMoveScore(position, b);
+
+            return Integer.compare(scoreB, scoreA); 
+        });
+    }
+
+    static int weightedMoveScore(Position pos, Move move) {
+
+        char target = pos.currentBoard[move.to];
+
+        // prioritize captures
+        if (target != '.') {
+            return pieceValue(target) * 10;
+        }
+        // prioritize promotions
+        if (move.promo != '0') {
+            return 900;
+        }
+        return 0;
+    }
+
+
+
     // ---------------- Chess core ----------------
     /* Rand & File to index table for real board
        File	a	b	c	d	e	f	g	h
