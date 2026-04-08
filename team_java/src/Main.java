@@ -111,6 +111,61 @@ public class Main {
         return pos;
     }
 
+
+    static void parseGo(String cmd) {
+        String[] tokens = cmd.trim().split("\\s+");
+
+        // Example inputs:
+        // "go"
+        // "go movetime 5000"
+        // "go depth 5"
+
+        for (int i = 1; i < tokens.length; i++) {
+
+            switch (tokens[i].toLowerCase()) {
+                case "movetime":
+                    if (i + 1 < tokens.length) {
+                        moveTimeMs = Integer.parseInt(tokens[i + 1]);
+                        i++; // skip value
+                    }
+                    break;
+
+                case "depth":
+                    if (i + 1 < tokens.length) {
+                        max_depth = Integer.parseInt(tokens[i + 1]);
+                        i++; // skip value
+                    }
+                    break;
+
+                default:
+                    moveTimeMs = 10000;
+                    max_depth = 100;
+                    break;
+            }
+        }
+    }
+
+    static Move iterativeDepthSearch(Position position) {
+        startTime = System.currentTimeMillis();
+        timeLimit = (long)(moveTimeMs * 0.85); // safety margin
+
+        Move bestMove = null;
+
+        for (int depth = 1; depth <= max_depth; depth++) {
+
+            Move currentBest = findBestMove(position, depth, bestMove);
+
+            if (System.currentTimeMillis() - startTime > timeLimit) {
+                break;
+            }
+
+            bestMove = currentBest;
+        }
+
+        return bestMove;
+    }
+
+
      /**
      * Explores the legal moves and finds the best move via min-max algorithm.
      * Uses alpha and beta values to prune branches and speed up evaluation time.
