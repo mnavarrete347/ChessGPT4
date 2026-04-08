@@ -313,6 +313,54 @@ public class Main {
      * Move class contains from index, to index and a character that determines piece promotion
      *
      */
+    static int evaluate(Position pos) {
+        int score = 0;
+
+        for (int i = 0; i < 64; i++) {
+            char p = pos.currentBoard[i];
+            if (p == '.') continue;
+
+            boolean isWhite = Character.isUpperCase(p);
+
+            int base = pieceValue(p);
+            int pst = 0;
+
+            int idx = isWhite ? i : mirror(i);
+
+            switch (Character.toUpperCase(p)) {
+                case 'P': pst = PAWN_TABLE[idx]; break;
+                case 'N': pst = KNIGHT_TABLE[idx]; break;
+                case 'B': pst = BISHOP_TABLE[idx]; break;
+                case 'R': pst = ROOK_TABLE[idx]; break;
+                case 'Q': pst = QUEEN_TABLE[idx]; break;
+                case 'K': pst = KING_TABLE[idx]; break;
+            }
+
+            int total = base + pst;
+
+            score += isWhite ? total : -total;
+        }
+
+        return score;
+    }
+
+    static int mirror (int square) {
+        return square ^ 56;
+    }
+
+    // simple method that assign each piece a value
+    static int pieceValue(char p) {
+        return switch (Character.toUpperCase(p)) {
+            case 'P' -> 100;
+            case 'N' -> 300;
+            case 'B' -> 300;
+            case 'R' -> 500;
+            case 'Q' -> 900;
+            case 'K' -> 10000;
+            default -> 0;
+        };
+    }
+    
     static final class Move {
         final int from; // 0..63
         final int to;   // 0..63
