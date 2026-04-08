@@ -358,11 +358,11 @@ public class Main {
      */
     static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
         List<Move> moves = pos.legalMoves();
-        // base cases
+        // base cases and time running out -> find score and return immediately
         if (System.currentTimeMillis() - startTime > timeLimit) return evaluate(pos);
         if (depth == 0) return evaluate(pos);
-        // possible exception
-        if (moves.isEmpty()) return evaluate(pos); // or checkmate logic later
+        // possible exception for checkmate or error
+        if (moves.isEmpty()) return evaluate(pos);
 
         // pruning is faster when the best moves are at the top of the list for each layer searched
         orderMoves(pos, moves);
