@@ -111,6 +111,45 @@ public class Main {
         return pos;
     }
 
+     /**
+     * Explores the legal moves and finds the best move via min-max algorithm.
+     * Uses alpha and beta values to prune branches and speed up evaluation time.
+     * Stops recursion if time limit is reached.
+     *
+     * @return value of the moves at each recursion and the score of the board at base case.
+     */
+    static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
+        List<Move> moves = pos.legalMoves();
+        // base cases and time running out -> find score and return immediately
+        if (System.currentTimeMillis() - startTime > timeLimit) return evaluate(pos);
+        if (depth == 0) return evaluate(pos);
+        // possible exception for checkmate or error
+        if (moves.isEmpty()) return evaluate(pos);
+
+        // pruning is faster when the best moves are at the top of the list for each layer searched
+        orderMoves(pos, moves);
+
+        if (maximizing) {
+            int value = Integer.MIN_VALUE;
+            for (Move m : moves) {
+                value = Math.max(value,
+                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, false));
+                alpha = Math.max(alpha, value);
+                if (alpha >= beta) break; // prune
+            }
+            return value;
+        } else {
+            int value = Integer.MAX_VALUE;
+            for (Move m : moves) {
+                value = Math.min(value,
+                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, true));
+                beta = Math.min(beta, value);
+                if (beta <= alpha) break; // prune
+            }
+            return value;
+        }
+    }
+
     // ---------------- Chess core ----------------
     /* Rand & File to index table for real board
        File	a	b	c	d	e	f	g	h
