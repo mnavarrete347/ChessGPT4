@@ -118,6 +118,68 @@ public class Main {
      *
      * @return value of the moves at each recursion and the score of the board at base case.
      */
+    static Move findBestMove(Position position, int depth, Move prevBest) {
+    // Generate all legal moves from the current position
+    List<Move> moves = position.legalMoves();
+
+    // return null if no legal moves
+    // Possible during checkmate or stalemate
+    if (moves.isEmpty()) return null;
+
+    
+    orderMoves(position, moves);
+
+    // If there was a best move from a previous search depth,
+    // move it to the front so it gets searched first
+  
+    if (prevBest != null && moves.contains(prevBest)) {
+        moves.remove(prevBest);
+        moves.addFirst(prevBest);
+    }
+
+    
+    Move bestMove = null; // tracks best move found so far
+
+    // Initialize bestScore depending on whose turn it is:
+    // White wants the highest score, Black wants the lowest score
+    int bestScore = position.whiteToMove ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+
+    // Try each legal move
+    for (Move m : moves) {
+        // Stop searching if the allotted time has been exceeded
+        if (System.currentTimeMillis() - startTime > timeLimit) break;
+
+        
+        Position next = position.makeMove(m); // get resulting position after making move
+
+        // Evaluate the resulting position using alpha-beta search
+        // depth - 1 because one move has already been made
+        int score = alphaBeta(next, depth - 1, Integer.MIN_VALUE, Integer.MAX_VALUE, !position.whiteToMove);
+
+        // If it's White's turn, choose the move with the highest score
+        if (position.whiteToMove) {
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = m;
+            }
+        } 
+        // If it's Black's turn, choose the move with the lowest score
+        else {
+            if (score < bestScore) {
+                bestScore = score;
+                bestMove = m;
+            }
+        }
+    }
+
+    // Print the best move found at this depth for debugging
+    if (bestMove != null) {
+        System.out.println("Move: " + bestMove.toUci() + " Score: " + bestScore + " Depth: " + depth);
+    }
+
+    
+    return bestMove; // returns best move
+}
     static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
         List<Move> moves = pos.legalMoves();
         // base cases and time running out -> find score and return immediately
