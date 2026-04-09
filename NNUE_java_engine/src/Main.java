@@ -1,99 +1,142 @@
-import ai.onnxruntime.*;
 
 import java.io.*;
-import java.util.*;
-
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import ai.onnxruntime.*;
+import java.util.*;
 
 /**
  * UCI engine: uses alpha-beta pruning to find bestmove.
  * Legal move generation, promotion, and castling are included (no en-passant).
  */
 public class Main {
-    // sliding piece directions
-    static final int[][] ROOK_DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}; //right, left, up, down
-    static final int[][] BISHOP_DIRECTIONS = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}; //rightUp, rightDown, leftUp, leftDown
-    static final int[][] QUEEN_DIRECTIONS = {
-            {1, 0}, {-1, 0}, {0, 1}, {0, -1},
-            {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
-    };
-    static final int[] PAWN_TABLE = {
+    public static final boolean ENABLE_EN_PASSANT = true;
+    // piece offsets and tables
+    static final int[] ROOK_OFFSETS = {8, -8, 1, -1};
+    static final int[] BISHOP_OFFSETS = {7, -7, 9, -9};
+    static final int[] QUEEN_OFFSETS = {8, -8, 1, -1, 7, -7, 9, -9};
+    static final long FILE_A = 0x0101010101010101L;
+    static final long FILE_H = 0x8080808080808080L;
+    static final long RANK_3 = 0x0000000000FF0000L;
+    static final long RANK_6 = 0x0000FF0000000000L;
+    static final long RANK_8 = 0xFF00000000000000L;
+    static final long RANK_1 = 0x00000000000000FFL;
+
+    // White Piece-Square Tables (Corrected for 0=a1 indexing)
+    static final int[] PAWN_PST = {
             0,  0,  0,  0,  0,  0,  0,  0,
-            50, 50, 50, 50, 50, 50, 50, 50,
-            10, 10, 20, 30, 30, 20, 10, 10,
-            5,  5, 10, 25, 25, 10,  5,  5,
-            0,  0,  0, 20, 20,  0,  0,  0,
-            5, -5,-10,  0,  0,-10, -5,  5,
             5, 10, 10,-20,-20, 10, 10,  5,
+            5, -5,-10,  0,  0,-10, -5,  5,
+            0,  0,  0, 20, 20,  0,  0,  0,
+            5,  5, 10, 25, 25, 10,  5,  5,
+            10, 10, 20, 30, 30, 20, 10, 10,
+            50, 50, 50, 50, 50, 50, 50, 50,
             0,  0,  0,  0,  0,  0,  0,  0
     };
-    static final int[] KNIGHT_TABLE = {
-            -50,-40,-30,-30,-30,-30,-40,-50,
-            -40,-20,  0,  0,  0,  0,-20,-40,
-            -30,  0, 10, 15, 15, 10,  0,-30,
-            -30,  5, 15, 20, 20, 15,  5,-30,
-            -30,  0, 15, 20, 20, 15,  0,-30,
-            -30,  5, 10, 15, 15, 10,  5,-30,
-            -40,-20,  0,  5,  5,  0,-20,-40,
-            -50,-40,-30,-30,-30,-30,-40,-50
-    };
-    static final int[] BISHOP_TABLE = {
+    static final int[] BISHOP_PST = {
             -20,-10,-10,-10,-10,-10,-10,-20,
-            -10,  5,  0,  0,  0,  0,  5,-10,
-            -10, 10, 10, 10, 10, 10, 10,-10,
-            -10,  0, 10, 10, 10, 10,  0,-10,
-            -10,  5,  5, 10, 10,  5,  5,-10,
-            -10,  0,  5, 10, 10,  5,  0,-10,
             -10,  0,  0,  0,  0,  0,  0,-10,
+            -10,  0,  5, 10, 10,  5,  0,-10,
+            -10,  5,  5, 10, 10,  5,  5,-10,
+            -10,  0, 10, 10, 10, 10,  0,-10,
+            -10, 10, 10, 10, 10, 10, 10,-10,
+            -10,  5,  0,  0,  0,  0,  5,-10,
             -20,-10,-10,-10,-10,-10,-10,-20
     };
-    static final int[] ROOK_TABLE = {
-            0,  0,  5, 10, 10,  5,  0,  0,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
-            -5,  0,  0,  0,  0,  0,  0, -5,
+    static final int[] ROOK_PST = {
+            0,  0,  0,  0,  0,  0,  0,  0,
             5, 10, 10, 10, 10, 10, 10,  5,
-            0,  0,  0,  0,  0,  0,  0,  0
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            0,  0,  5, 10, 10,  5,  0,  0
     };
-    static final int[] QUEEN_TABLE = {
+    static final int[] KNIGHT_PST = {
+            -50,-40,-30,-30,-30,-30,-40,-50,
+            -40,-20,  0,  5,  5,  0,-20,-40,
+            -30,  5, 10, 15, 15, 10,  5,-30,
+            -30,  0, 15, 20, 20, 15,  0,-30,
+            -30,  5, 15, 20, 20, 15,  5,-30,
+            -30,  0, 10, 15, 15, 10,  0,-30,
+            -40,-20,  0,  0,  0,  0,-20,-40,
+            -50,-40,-30,-30,-30,-30,-40,-50
+    };
+    static final int[] QUEEN_PST = {
             -20,-10,-10, -5, -5,-10,-10,-20,
-            -10,  0,  0,  0,  0,  0,  0,-10,
-            -10,  0,  5,  5,  5,  5,  0,-10,
-            -5,  0,  5,  5,  5,  5,  0, -5,
-            0,  0,  5,  5,  5,  5,  0, -5,
-            -10,  5,  5,  5,  5,  5,  0,-10,
             -10,  0,  5,  0,  0,  0,  0,-10,
+            -10,  5,  5,  5,  5,  5,  0,-10,
+            0,  0,  5,  5,  5,  5,  0, -5,
+            -5,  0,  5,  5,  5,  5,  0, -5,
+            -10,  0,  5,  5,  5,  5,  0,-10,
+            -10,  0,  0,  0,  0,  0,  0,-10,
             -20,-10,-10, -5, -5,-10,-10,-20
     };
-    static final int[] KING_TABLE = {
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -30,-40,-40,-50,-50,-40,-40,-30,
-            -20,-30,-30,-40,-40,-30,-30,-20,
-            -10,-20,-20,-20,-20,-20,-20,-10,
+    static final int[] KING_PST = {
+            20, 30, 10,  0,  0, 10, 30, 20,
             20, 20,  0,  0,  0,  0, 20, 20,
-            20, 30, 10,  0,  0, 10, 30, 20
+            -10,-20,-20,-20,-20,-20,-20,-10,
+            -20,-30,-30,-40,-40,-30,-30,-20,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30
     };
+
+    static final long[] KNIGHT_ATTACKS = new long[64];
+    static final long[] KING_ATTACKS = new long[64];
+
+    static {
+        for (int i = 0; i < 64; i++) {
+            int r = i / 8;
+            int f = i % 8;
+
+            // --- Knight Attack Precomputation ---
+            // The 8 possible L-shapes
+            int[] drN = {-2, -2, -1, -1, 1, 1, 2, 2};
+            int[] dfN = {-1, 1, -2, 2, -2, 2, -1, 1};
+            long nMask = 0L;
+
+            for (int j = 0; j < 8; j++) {
+                int nr = r + drN[j];
+                int nf = f + dfN[j];
+
+                // Check if the destination is on the 8x8 board
+                if (nr >= 0 && nr < 8 && nf >= 0 && nf < 8) {
+                    nMask |= (1L << (nr * 8 + nf));
+                }
+            }
+            KNIGHT_ATTACKS[i] = nMask;
+
+            // --- King Attack Precomputation ---
+            // All 8 adjacent squares
+            long kMask = 0L;
+            for (int dr = -1; dr <= 1; dr++) {
+                for (int df = -1; df <= 1; df++) {
+                    if (dr == 0 && df == 0) continue; // Skip the square the king is actually on
+
+                    int nr = r + dr;
+                    int nf = f + df;
+
+                    if (nr >= 0 && nr < 8 && nf >= 0 && nf < 8) {
+                        kMask |= (1L << (nr * 8 + nf));
+                    }
+                }
+            }
+            KING_ATTACKS[i] = kMask;
+        }
+    }
 
     // Parameters for move searching
     static int max_depth = 100;
     static long startTime;
     static long timeLimit;
     static long moveTimeMs = 10000; // 10 sec default time
+    static int lastScore = 0;
 
-    // Neural Engine variables
-    static NeuralEngine neuralEngine = null;
-    static boolean neuralInitialized = false;
+    // Parameters for Neural Network Engine
+    static final String modelPath = "models/chess_model.onnx";
+    static final String moveMapPath = "models/move_map.ser";
 
     /**
      * Main method that deals with communication and game logic.
@@ -105,6 +148,16 @@ public class Main {
         PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out)), true);
 
         Position pos = Position.startPos();
+        NeuralEngine nnEngine = null;
+
+        try {
+            Map<String, Integer> moveMap = loadMoveMap(moveMapPath);
+            nnEngine = new NeuralEngine(modelPath, moveMap);
+            System.out.println("info string Neural Engine loaded successfully.");
+        } catch (Exception e) {
+            System.out.println("info string Neural Engine failed: " + e.getMessage());
+            // Fallback: engine continues as a normal bitboard engine
+        }
 
         String line;
         while ((line = br.readLine()) != null) {
@@ -121,13 +174,21 @@ public class Main {
                 pos = Position.startPos();
             } else if (line.startsWith("position")) {
                 pos = parsePosition(line, pos);
-                //Position.printBoardWithIndices(pos.currentBoard);
+                pos.printBoard();
             } else if (line.startsWith("go")) {
                 parseGo(line);
-                Move m = hybridBestMove(pos);
-                if (m == null) out.println("bestmove 0000");
-                else out.println("bestmove " + m.toUci());
-                //Position.printBoardWithIndices(pos.makeMove(m).currentBoard);
+                int m = iterativeSearch(pos, nnEngine);
+                if (m == 0) out.println("bestmove 0000");
+                else out.println("bestmove " + Move.toUci(m));
+                pos = pos.makeMove(m);
+                pos.printBoard();
+            } else if (line.startsWith("perft")) {
+                runPerft(pos, 1);
+                runPerft(pos, 2);
+                runPerft(pos, 3);
+                runPerft(pos, 4);
+                runPerft(pos, 5);
+                runPerft(pos, 6);
             } else if (line.equals("quit")) {
                 break;
             }
@@ -136,67 +197,36 @@ public class Main {
         out.flush();
     }
 
+    public static void runPerft(Position pos, int depth) {
+        long start = System.nanoTime();
+        long nodes = perft(pos, depth);
+        long end = System.nanoTime();
+
+        double durationSeconds = (end - start) / 1_000_000_000.0;
+        long nps = (long) (nodes / durationSeconds);
+
+        System.out.printf("Depth %d: %d nodes in %.3f seconds (NPS: %d)%n", depth, nodes, durationSeconds, nps);
+    }
+
+    private static long perft(Position pos, int depth) {
+        if (depth == 0) return 1;
+        long nodes = 0;
+        MoveList moves = pos.legalMoves();
+        for (int i = 0; i < moves.count; i++) {
+            nodes += perft(pos.makeMove(moves.moves[i]), depth - 1);
+        }
+        return nodes;
+    }
+
+    /**
+     * Helper method to load the move map and suppress the 'unchecked' warning.
+     */
     @SuppressWarnings("unchecked")
-    static Map<String, Integer> loadMoveMap(String path) {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(path))) {
+    private static Map<String, Integer> loadMoveMap(String path) throws Exception {
+        try (FileInputStream fis = new FileInputStream(path);
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
             return (Map<String, Integer>) ois.readObject();
-        } catch (Exception e) {
-            //System.out.println("Error loading move map: " + e.getMessage());
-            return null;
         }
-    }
-
-    static void initNeuralEngine() {
-        if (neuralInitialized) return;
-
-        try {
-            Map<String, Integer> moveMap = loadMoveMap("models\\move_map.ser");
-
-            if (moveMap == null) {
-                //System.out.println("Move map failed to load.");
-                return;
-            }
-
-            neuralEngine = new NeuralEngine("models\\chess_model.onnx", moveMap);
-
-            neuralInitialized = true;
-            //System.out.println("Neural engine initialized.");
-
-        } catch (Exception e) {
-            //System.out.println("Neural engine init failed: " + e.getMessage());
-        }
-    }
-
-    static Move hybridBestMove(Position position) {
-
-        // Step 1: Ensure neural engine is ready
-        if (!neuralInitialized) {
-            initNeuralEngine();
-        }
-
-        // Step 2: Try AI move
-        if (neuralEngine != null) {
-            try {
-                String aiMoveStr = neuralEngine.predictMove(position);
-                if (aiMoveStr != null) {
-                    Move aiMove = Move.fromUci(aiMoveStr);
-                    // safety check (VERY IMPORTANT)
-                    List<Move> moves = position.legalMoves();
-
-                    for (Move m : moves) {
-                        if (m.toUci().equals(aiMoveStr)) {
-                            return m;
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                //System.out.println("AI move failed: " + e.getMessage());
-            }
-        }
-
-        // Step 3: Fallback to classical engine
-        //System.out.println("Falling back to search...");
-        return iterativeDepthSearch(position);
     }
 
     /**
@@ -240,7 +270,7 @@ public class Main {
             for (; i < tokens.length; i++) {
                 // create moves from uci string tokens
                 String uci = tokens[i];
-                Move m = Move.fromUci(uci);
+                int m = Move.fromUci(uci);
                 pos = pos.makeMove(m);
             }
         }
@@ -280,190 +310,203 @@ public class Main {
         }
     }
 
-    static Move iterativeDepthSearch(Position position) {
+    static int iterativeSearch(Position pos, NeuralEngine nn) {
         startTime = System.currentTimeMillis();
-        timeLimit = (long)(moveTimeMs * 0.85); // safety margin
+        timeLimit = (long)(moveTimeMs * 0.9);
 
-        Move bestMove = null;
+        int rootNNMove = 0;
+
+        // Only prompt the NN if we have more than 1 second
+        if (moveTimeMs >= 800 && nn != null) {
+            try {
+                // We pass the current legal moves so the NN doesn't re-generate them
+                rootNNMove = nn.predictBestMove(pos, pos.legalMoves());
+            } catch (Exception e) {
+                System.out.println("NN Error: " + e.getMessage());
+            }
+        }
+
+        int bestMove = 0;
 
         for (int depth = 1; depth <= max_depth; depth++) {
+            // Pass the rootNNMove down as a hint
+            int currentBest = findBest(pos, depth, bestMove, rootNNMove);
 
-            Move currentBest = findBestMove(position, depth, bestMove);
-
-            if (System.currentTimeMillis() - startTime > timeLimit) {
-                break;
-            }
-
-            bestMove = currentBest;
-        }
-
-        return bestMove;
-    }
-
-    /**
-     * Finds the bestmove by looping through all legal moves.
-     * At each loop, the move is made and the board is scored using alphaBeta method.
-     * Retains previous best move from top layer and prunes
-     *
-     * @return bestmove - highest scoring move is returned for white and the lowest for black
-     */
-    static Move findBestMove(Position position, int depth, Move prevBest) {
-        List<Move> moves = position.legalMoves();
-
-        // check for worst case
-        if (moves.isEmpty()) return null;
-        // order moves for first depth layer
-        orderMoves(position, moves);
-
-        // prioritize previous best move by pushing it to top of search tree
-        if (prevBest != null && moves.contains(prevBest)) {
-            moves.remove(prevBest);
-            moves.addFirst(prevBest);
-        }
-
-        Move bestMove = null;
-        // Integer.MIN_VALUE and Integer.MAX_VALUE are constants that represent -∞ and +∞
-        int bestScore = position.whiteToMove ? Integer.MIN_VALUE : Integer.MAX_VALUE;
-
-        // for each move, makes the move and scores the board state using alphaBeta pruning
-        for (Move m : moves) {
-            // stop searching if time limit is reached
             if (System.currentTimeMillis() - startTime > timeLimit) break;
 
-            Position next = position.makeMove(m);
+            bestMove = currentBest;
 
-            int score = alphaBeta(next, depth - 1, Integer.MIN_VALUE, Integer.MAX_VALUE, !position.whiteToMove);
-
-            if (position.whiteToMove) {
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMove = m;
-                }
-            } else {
-                if (score < bestScore) {
-                    bestScore = score;
-                    bestMove = m;
-                }
-            }
+            // If we found a checkmate, we can stop searching deeper
+            if (Math.abs(lastScore) > 90000) break;
         }
+
         return bestMove;
     }
 
-    /**
-     * Explores the legal moves and finds the best move via min-max algorithm.
-     * Uses alpha and beta values to prune branches and speed up evaluation time.
-     * Stops recursion if time limit is reached.
-     *
-     * @return value of the moves at each recursion and the score of the board at base case.
-     */
-    static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
-        List<Move> moves = pos.legalMoves();
-        // base cases and time running out -> find score and return immediately
+    static int findBest(Position pos, int depth, int prevBest, int nnHint) {
+        MoveList moves = pos.legalMoves();
+        if (moves.count == 0) return 0;
+
+        // Use the optimized move ordering with NN and PV (prevBest) hints
+        orderMoves(pos, moves, prevBest, nnHint);
+
+        int bestM = moves.moves[0];
+        int alpha = -1000000;
+        int beta = 1000000;
+
+        for (int i = 0; i < moves.count; i++) {
+            int m = moves.moves[i];
+            Position next = pos.makeMove(m);
+
+            // Root call to negamax
+            // Note: nnHint and prevBest are passed as 0 to deeper levels
+            // because they only apply to the root position.
+            int score = -negamax(next, depth - 1, -beta, -alpha);
+
+            if (score > alpha) {
+                alpha = score;
+                bestM = m;
+                lastScore = score; // Update the score for the iterative search
+            }
+
+            if (System.currentTimeMillis() - startTime > timeLimit) break;
+        }
+        return bestM;
+    }
+
+    static int negamax(Position pos, int depth, int alpha, int beta) {
+        // Check time limit
         if (System.currentTimeMillis() - startTime > timeLimit) return evaluate(pos);
+
+        // Base case: leaf node
         if (depth == 0) return evaluate(pos);
-        // possible exception for checkmate or error
-        if (moves.isEmpty()) return evaluate(pos);
 
-        // pruning is faster when the best moves are at the top of the list for each layer searched
-        orderMoves(pos, moves);
+        MoveList moves = pos.pseudoLegalMoves();
+        int legalCount = 0;
 
-        if (maximizing) {
-            int value = Integer.MIN_VALUE;
-            for (Move m : moves) {
-                value = Math.max(value,
-                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, false));
-                alpha = Math.max(alpha, value);
-                if (alpha >= beta) break; // prune
-            }
-            return value;
-        } else {
-            int value = Integer.MAX_VALUE;
-            for (Move m : moves) {
-                value = Math.min(value,
-                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, true));
-                beta = Math.min(beta, value);
-                if (beta <= alpha) break; // prune
-            }
-            return value;
+        // Order moves using MVV-LVA/PSTs (no NN hint at this depth)
+        orderMoves(pos, moves, 0, 0);
+
+        for (int i = 0; i < moves.count; i++) {
+            Position next = pos.makeMove(moves.moves[i]);
+            if (next.inCheck(!next.whiteToMove)) continue;
+            legalCount++;
+
+            // Recursive call with flipped alpha/beta
+            int score = -negamax(next, depth - 1, -beta, -alpha);
+
+            if (score >= beta) return beta; // Beta-cutoff (pruning)
+            if (score > alpha) alpha = score;
         }
+
+        // Handle checkmate or stalemate
+        if (legalCount == 0) {
+            return pos.inCheck(pos.whiteToMove) ? (-100000 + (max_depth - depth)) : 0;
+        }
+
+        return alpha;
     }
 
-    /**
-     * Sorts moves by comparing two moves by using custom scoring math.
-     * sorted moves are returned by largest score first.
-     *
-     * @param position - position object with board information
-     * @param moves - list of moves that are legal
-     */
-    static void orderMoves(Position position, List<Move> moves) {
-
-        moves.sort((a, b) -> {
-            int scoreA = weightedMoveScore(position, a);
-            int scoreB = weightedMoveScore(position, b);
-
-            return Integer.compare(scoreB, scoreA); // descending
-        });
-    }
-
-    static int weightedMoveScore(Position pos, Move move) {
-
-        char target = pos.currentBoard[move.to];
-
-        // prioritize captures
-        if (target != '.') {
-            return pieceValue(target) * 10;
-        }
-        // prioritize promotions
-        if (move.promo != '0') {
-            return 900;
-        }
-        return 0;
-    }
-
-    /**
-     * Evaluates the board based on existing pieces.
-     * Same side pieces add points and opposite side pieces take away points.
-     * Incentivizes moves that capture opposite side pieces.
-     *
-     * @return score integer between 4200 and -4200, 0 at startpos
-     */
     static int evaluate(Position pos) {
         int score = 0;
 
-        for (int i = 0; i < 64; i++) {
-            char p = pos.currentBoard[i];
-            if (p == '.') continue;
+        // 1. Material (using bitCount)
+        score += 100 * (Long.bitCount(pos.wp) - Long.bitCount(pos.bp));
+        score += 320 * (Long.bitCount(pos.wn) - Long.bitCount(pos.bn));
+        score += 330 * (Long.bitCount(pos.wb) - Long.bitCount(pos.bb));
+        score += 500 * (Long.bitCount(pos.wr) - Long.bitCount(pos.br));
+        score += 900 * (Long.bitCount(pos.wq) - Long.bitCount(pos.bq));
 
-            boolean isWhite = Character.isUpperCase(p);
+        // 2. Positional (PST)
+        // Be careful here: wp for Pawns, wn for Knights, wb for Bishops, etc.
+        score += evalPST(pos.wp, PAWN_PST, true);
+        score -= evalPST(pos.bp, PAWN_PST, false);
 
-            int base = pieceValue(p);
-            int pst = 0;
+        score += evalPST(pos.wn, KNIGHT_PST, true);
+        score -= evalPST(pos.bn, KNIGHT_PST, false);
 
-            int idx = isWhite ? i : mirror(i);
+        score += evalPST(pos.wb, BISHOP_PST, true);
+        score -= evalPST(pos.bb, BISHOP_PST, false);
 
-            switch (Character.toUpperCase(p)) {
-                case 'P': pst = PAWN_TABLE[idx]; break;
-                case 'N': pst = KNIGHT_TABLE[idx]; break;
-                case 'B': pst = BISHOP_TABLE[idx]; break;
-                case 'R': pst = ROOK_TABLE[idx]; break;
-                case 'Q': pst = QUEEN_TABLE[idx]; break;
-                case 'K': pst = KING_TABLE[idx]; break;
-            }
+        score += evalPST(pos.wr, ROOK_PST, true);
+        score -= evalPST(pos.br, ROOK_PST, false);
 
-            int total = base + pst;
+        score += evalPST(pos.wq, QUEEN_PST, true);
+        score -= evalPST(pos.bq, QUEEN_PST, false);
 
-            score += isWhite ? total : -total;
+        score += evalPST(pos.wk, KING_PST, true);
+        score -= evalPST(pos.bk, KING_PST, false);
+
+        return pos.whiteToMove ? score : -score;
+    }
+
+    private static int evalPST(long bitboard, int[] table, boolean isWhite) {
+        int pstSum = 0;
+        while (bitboard != 0) {
+            int sq = Long.numberOfTrailingZeros(bitboard);
+            // Mirror the square for black (flip vertically)
+            pstSum += table[isWhite ? sq : (sq ^ 56)];
+            bitboard &= (bitboard - 1);
         }
+        return pstSum;
+    }
+
+    static void orderMoves(Position pos, MoveList list, int prevBest, int nnHint) {
+        int[] scores = new int[list.count];
+
+        for (int i = 0; i < list.count; i++) {
+            int m = list.moves[i];
+
+            // 1. Neural Network Hint gets top priority
+            if (m == nnHint) {
+                scores[i] = 20000;
+            }
+            // 2. Previous Best from shallower depth (PV move)
+            else if (m == prevBest) {
+                scores[i] = 10000;
+            }
+            // 3. Traditional Captures (MVV-LVA)
+            else {
+                scores[i] = scoreMove(pos, m);
+            }
+        }
+
+        // Simple selection sort to bring best moves to the front
+        for (int i = 0; i < list.count - 1; i++) {
+            for (int j = i + 1; j < list.count; j++) {
+                if (scores[j] > scores[i]) {
+                    int tempM = list.moves[i];
+                    list.moves[i] = list.moves[j];
+                    list.moves[j] = tempM;
+
+                    int tempS = scores[i];
+                    scores[i] = scores[j];
+                    scores[j] = tempS;
+                }
+            }
+        }
+    }
+
+    static int scoreMove(Position pos, int m) {
+        int score = 0;
+        int from = Move.getFrom(m);
+        int to = Move.getTo(m);
+        long toBit = 1L << to;
+
+        // MVV-LVA: Prioritize captures of high-value pieces with low-value pieces
+        if ((pos.allPieces & toBit) != 0) {
+            int victimValue = getPieceValue(pos.getPieceAt(to));
+            int attackerValue = getPieceValue(pos.getPieceAt(from));
+            score = 1000 + (victimValue - (attackerValue / 10));
+        }
+
+        // Prioritize promotions
+        if (Move.getPromo(m) != 0) score += 900;
 
         return score;
     }
 
-    static int mirror (int square) {
-        return square ^ 56;
-    }
-
-    // simple method that assign each piece a value
-    static int pieceValue(char p) {
+    private static int getPieceValue(char p) {
         return switch (Character.toUpperCase(p)) {
             case 'P' -> 100;
             case 'N' -> 300;
@@ -475,251 +518,183 @@ public class Main {
         };
     }
 
-    private static class NeuralEngine {
-
+    public static class NeuralEngine {
         private OrtEnvironment env;
         private OrtSession session;
+        private String inputName;
 
-        private Map<String, Integer> moveToInt;
-        private Map<Integer, String> intToMove;
+        // Use a primitive array for mapping to avoid HashMap lookups in the hot loop
+        private String[] intToMoveUci;
 
         public NeuralEngine(String modelPath, Map<String, Integer> moveMap) throws Exception {
-            env = OrtEnvironment.getEnvironment();
-            session = env.createSession(modelPath, new OrtSession.SessionOptions());
+            this.env = OrtEnvironment.getEnvironment();
+            this.session = env.createSession(modelPath, new OrtSession.SessionOptions());
+            this.inputName = session.getInputNames().iterator().next();
 
-            this.moveToInt = moveMap;
-
-            // reverse mapping
-            intToMove = new HashMap<>();
+            // Convert Map to a fast-access array
+            int maxIdx = 0;
+            for (int idx : moveMap.values()) if (idx > maxIdx) maxIdx = idx;
+            intToMoveUci = new String[maxIdx + 1];
             for (Map.Entry<String, Integer> e : moveMap.entrySet()) {
-                intToMove.put(e.getValue(), e.getKey());
+                intToMoveUci[e.getValue()] = e.getKey();
             }
         }
 
-        float[][][][] boardToTensor(Position pos) {
-
-            // [batch][channels][row][col]
+        private float[][][][] boardToTensor(Position pos, MoveList legalMoves) {
             float[][][][] tensor = new float[1][13][8][8];
 
-            // -------------------------
-            // 1. Piece placement (channels 0–11)
-            // -------------------------
-            for (int square = 0; square < 64; square++) {
-                char p = pos.currentBoard[square];
-                if (p == '.') continue;
+            // Channels 0-11: Pieces
+            // We access the bitboards directly from the Position class
+            long[] pieceBitboards = {pos.wp, pos.wn, pos.wb, pos.wr, pos.wq, pos.wk,
+                    pos.bp, pos.bn, pos.bb, pos.br, pos.bq, pos.bk};
 
-                int row = square / 8;
-                int col = square % 8;
-
-                int channel = pieceToChannel(p);
-
-                if (channel != -1) {
-                    tensor[0][channel][row][col] = 1.0f;
+            for (int i = 0; i < 12; i++) {
+                long bb = pieceBitboards[i];
+                while (bb != 0) {
+                    int sq = Long.numberOfTrailingZeros(bb);
+                    // Bitboard index to Row/Col (Note: matches your mapping)
+                    tensor[0][i][sq / 8][sq % 8] = 1.0f;
+                    bb &= (bb - 1); // Clear the bit
                 }
             }
 
-            // -------------------------
-            // 2. Legal moves (channel 12)
-            // -------------------------
-            List<Move> legalMoves = pos.legalMoves();
-
-            for (Move m : legalMoves) {
-                int to = m.to;
-
-                int row = to / 8;
-                int col = to % 8;
-
-                tensor[0][12][row][col] = 1.0f;
+            // Channel 12: Legal move "To" squares
+            for (int i = 0; i < legalMoves.count; i++) {
+                int to = Move.getTo(legalMoves.moves[i]);
+                tensor[0][12][to / 8][to % 8] = 1.0f;
             }
 
             return tensor;
         }
 
-        int pieceToChannel(char p) {
-            switch (p) {
-                // White pieces (0–5)
-                case 'P': return 0;
-                case 'N': return 1;
-                case 'B': return 2;
-                case 'R': return 3;
-                case 'Q': return 4;
-                case 'K': return 5;
+        public int predictBestMove(Position pos, MoveList legalMoves) throws Exception {
+            float[][][][] inputData = boardToTensor(pos, legalMoves);
 
-                // Black pieces (6–11)
-                case 'p': return 6;
-                case 'n': return 7;
-                case 'b': return 8;
-                case 'r': return 9;
-                case 'q': return 10;
-                case 'k': return 11;
-            }
-            return -1;
-        }
+            try (OnnxTensor inputTensor = OnnxTensor.createTensor(env, inputData);
+                 OrtSession.Result result = session.run(Collections.singletonMap(inputName, inputTensor))) {
 
-        public String predictMove(Position pos) throws Exception {
+                float[][] output = (float[][]) result.get(0).getValue();
+                float[] logits = output[0];
 
-            float[][][][] inputData = boardToTensor(pos);
+                // Avoid softmax if we only need the highest value (argmax is enough)
+                // But we keep it if you need the full probability distribution later
+                Integer[] indices = new Integer[logits.length];
+                for (int i = 0; i < logits.length; i++) indices[i] = i;
 
-            OnnxTensor inputTensor = OnnxTensor.createTensor(env, inputData);
+                // Sort indices by raw logits (same order as softmax probabilities)
+                Arrays.sort(indices, (a, b) -> Float.compare(logits[b], logits[a]));
 
-            Map<String, OnnxTensor> inputs = new HashMap<>();
-            inputs.put(session.getInputNames().iterator().next(), inputTensor);
+                // Filter by legality using Move.toUci comparisons
+                for (int idx : indices) {
+                    String moveStr = intToMoveUci[idx];
+                    if (moveStr == null) continue;
 
-            OrtSession.Result result = session.run(inputs);
-
-            float[][] output = (float[][]) result.get(0).getValue();
-            float[] logits = output[0];
-
-            double[] probs = softmax(logits);
-
-            List<Move> legalMoves = pos.legalMoves();
-            Set<String> legalUCI = new HashSet<>();
-
-            for (Move m : legalMoves) {
-                legalUCI.add(m.toUci());
-            }
-
-            // sort indices by probability descending
-            Integer[] indices = new Integer[probs.length];
-            for (int i = 0; i < probs.length; i++) indices[i] = i;
-
-            Arrays.sort(indices, (a, b) -> Double.compare(probs[b], probs[a]));
-
-            for (int idx : indices) {
-                String move = intToMove.get(idx);
-                if (move != null && legalUCI.contains(move)) {
-                    return move;
+                    for (int i = 0; i < legalMoves.count; i++) {
+                        int m = legalMoves.moves[i];
+                        if (Move.toUci(m).equals(moveStr)) {
+                            return m; // Return the move as an int
+                        }
+                    }
                 }
             }
-
-            return null;
-        }
-
-        double[] softmax(float[] logits) {
-
-            // Step 1: Find max (for numerical stability)
-            double max = Double.NEGATIVE_INFINITY;
-            for (float v : logits) {
-                if (v > max) {
-                    max = v;
-                }
-            }
-
-            // Step 2: Compute exponentials
-            double sum = 0.0;
-            double[] exp = new double[logits.length];
-
-            for (int i = 0; i < logits.length; i++) {
-                exp[i] = Math.exp(logits[i] - max); // stability trick
-                sum += exp[i];
-            }
-
-            // Step 3: Normalize
-            for (int i = 0; i < exp.length; i++) {
-                exp[i] /= sum;
-            }
-
-            return exp;
+            return 0; // No move found
         }
     }
 
     /**
-     * Move class contains from index, to index and a character that determines piece promotion
-     *
+     * Utility class to handle moves as primitive ints.
+     * Bits 0-5: From Square (0-63)
+     * Bits 6-11: To Square (0-63)
+     * Bits 12-14: Promotion Piece (0:None, 1:q, 2:r, 3:b, 4:n)
      */
     static final class Move {
-        final int from; // 0..63
-        final int to;   // 0..63
-        final char promo; // 'q' or 0
-
-        Move(int from, int to, char promo) {
-            this.from = from;
-            this.to = to;
-            this.promo = promo;
+        public static int create(int from, int to, int promo) {
+            return from | (to << 6) | (promo << 12);
         }
 
-        // create a move object from Uci string
-        static Move fromUci(String s) {
-            if (s == null || s.length() < 4) return new Move(0, 0, (char) 0);
+        public static int getFrom(int move) { return move & 0x3F; }
+        public static int getTo(int move) { return (move >> 6) & 0x3F; }
+        public static int getPromo(int move) { return (move >> 12) & 0x7; }
+
+        static int fromUci(String s) {
+            if (s == null || s.length() < 4) return 0;
             int from = squareIndex(s.substring(0, 2));
             int to = squareIndex(s.substring(2, 4));
-            char promo = (s.length() >= 5) ? s.charAt(4) : 0;
-            return new Move(from, to, promo);
+            int promo = 0;
+            if (s.length() >= 5) {
+                char p = s.charAt(4);
+                if (p == 'q') promo = 1;
+                else if (p == 'r') promo = 2;
+                else if (p == 'b') promo = 3;
+                else if (p == 'n') promo = 4;
+            }
+            return create(from, to, promo);
         }
 
-        // create Uci string based on move object
-        String toUci() {
-            String u = indexToSquare(from) + indexToSquare(to);
-            if (promo != 0) u += promo;
-            return u;
+        static String toUci(int move) {
+            String s = indexToSquare(getFrom(move)) + indexToSquare(getTo(move));
+            int p = getPromo(move);
+            if (p == 1) s += "q";
+            else if (p == 2) s += "r";
+            else if (p == 3) s += "b";
+            else if (p == 4) s += "n";
+            return s;
         }
 
-        // Helper conversion methods
         static int squareIndex(String sq) {
-            int file = sq.charAt(0) - 'a';
-            int rank = sq.charAt(1) - '1';
-            return rank * 8 + file;
+            return (sq.charAt(1) - '1') * 8 + (sq.charAt(0) - 'a');
         }
 
         static String indexToSquare(int idx) {
-            int file = idx % 8;
-            int rank = idx / 8;
-            return "" + (char) ('a' + file) + (char) ('1' + rank);
+            return "" + (char) ('a' + (idx % 8)) + (char) ('1' + (idx / 8));
         }
     }
 
-    // Class that uses fen format to keep track of moves internally
-    // has a board and turn data
+    static final class MoveList {
+        // A square can't usually have more than 218 moves in any legal position
+        public int[] moves = new int[256];
+        public int count = 0;
+
+        public void add(int move) {
+            moves[count++] = move;
+        }
+    }
 
     /**
      * Position class contains a character array represneting all 64 squares on the board
      * and which side it is to move
      */
-    static final class Position {
-        // board: '.' empty, pieces: PNBRQK for white, pnbrqk for black
-        final char[] currentBoard = new char[64];
-        // game states of each board
-        final boolean whiteToMove;
-        final boolean whiteKingSideCastle;
-        final boolean whiteQueenSideCastle;
-        final boolean blackKingSideCastle;
-        final boolean blackQueenSideCastle;
 
-        Position(char[] board, boolean wtm,
-                 boolean wK, boolean wQ, boolean bK, boolean bQ) {
-            System.arraycopy(board, 0, currentBoard, 0, 64);
+    static final class Position {
+        // 12 Piece bitboards
+        long wp, wn, wb, wr, wq, wk; // White: pawn, knight, bishop, rook, queen, king
+        long bp, bn, bb, br, bq, bk; // Black: pawn, knight, bishop, rook, queen, king
+
+        // Occupancy bitboards
+        long whitePieces, blackPieces, allPieces;
+
+        // Game State
+        final boolean whiteToMove;
+        final boolean whiteKingSideCastle, whiteQueenSideCastle;
+        final boolean blackKingSideCastle, blackQueenSideCastle;
+        final int enPassantSq;
+
+        Position(long[] pieces, boolean wtm, boolean wK, boolean wQ, boolean bK, boolean bQ, int epSq) {
+            this.wp = pieces[0]; this.wn = pieces[1]; this.wb = pieces[2];
+            this.wr = pieces[3]; this.wq = pieces[4]; this.wk = pieces[5];
+            this.bp = pieces[6]; this.bn = pieces[7]; this.bb = pieces[8];
+            this.br = pieces[9]; this.bq = pieces[10]; this.bk = pieces[11];
+
+            this.whitePieces = wp | wn | wb | wr | wq | wk;
+            this.blackPieces = bp | bn | bb | br | bq | bk;
+            this.allPieces = whitePieces | blackPieces;
+
             this.whiteToMove = wtm;
             this.whiteKingSideCastle = wK;
             this.whiteQueenSideCastle = wQ;
             this.blackKingSideCastle = bK;
             this.blackQueenSideCastle = bQ;
-        }
-
-        static void printBoardWithIndices(char[] board) {
-            System.out.println();
-
-            for (int rank = 7; rank >= 0; rank--) {
-                System.out.print((rank + 1) + "  ");
-
-                for (int file = 0; file < 8; file++) {
-                    int index = rank * 8 + file;
-                    char piece = board[index];
-
-                    System.out.printf("%2s ", piece);
-                }
-
-                System.out.print("   ");
-
-                // Print indices
-                for (int file = 0; file < 8; file++) {
-                    int index = rank * 8 + file;
-                    System.out.printf("%2d ", index);
-                }
-
-                System.out.println();
-            }
-
-            System.out.println("\n   a  b  c  d  e  f  g  h\n");
+            this.enPassantSq = epSq;
         }
 
         // black at top of board, white at bottom of board
@@ -727,112 +702,145 @@ public class Main {
             return fromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         } // "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-        /**
-         * Creates a position object (board + turn) from fen string
-         *
-         * @param fen String that contains the FEN input command
-         * @return new Postion object with board and turn set up as in the FEN string
-         */
         static Position fromFEN(String fen) {
-            // split string using spaces
             String[] fenTokens = fen.trim().split("\\s+");
             String placement = fenTokens[0];
             boolean wtm = fenTokens.length > 1 ? fenTokens[1].equals("w") : true;
-            // initialize board with empty squares
-            char[] board = new char[64];
-            Arrays.fill(board, '.');
 
-            // start at top left corner of the board
-            int rank = 7;
-            int file = 0;
-            // loop through all 64 indexes and put the pieces in
+            long[] pieces = new long[12];
+            int rank = 7, file = 0;
+
             for (int i = 0; i < placement.length(); i++) {
                 char c = placement.charAt(i);
-                // decrease rank at /
-                if (c == '/') {
-                    rank--;
-                    file = 0;
-                    // skip squares at numbers of free spaces
-                } else if (Character.isDigit(c)) {
-                    file += (c - '0');
-                    // place the characters at correct index
-                } else {
-                    int idx = rank * 8 + file;
-                    board[idx] = c;
+                if (c == '/') { rank--; file = 0; }
+                else if (Character.isDigit(c)) { file += (c - '0'); }
+                else {
+                    int sq = rank * 8 + file;
+                    int pIndex = getPieceIndex(c);
+                    pieces[pIndex] |= (1L << sq); // Set the bit at square index
                     file++;
                 }
             }
-            boolean[] cRights = setCastlingRights(fenTokens[3]);
-            // printBoardWithIndices(board);
-            return new Position(board, wtm, cRights[0], cRights[1], cRights[2], cRights[3]);
+
+            boolean[] cRights = setCastlingRights(fenTokens.length > 2 ? fenTokens[2] : "-");
+            String epToken = fenTokens.length > 3 ? fenTokens[3] : "-";
+            int epSq = epToken.equals("-") ? -1 : Move.squareIndex(epToken);
+
+            return new Position(pieces, wtm, cRights[0], cRights[1], cRights[2], cRights[3], epSq);
         }
 
-        /**
-         * Swaps character between to and from, also checks and makes castling moves
-         *
-         * @param m Move object containing movement data used to update the board
-         */
-        Position makeMove(Move m) {
-            char[] newBoard = Arrays.copyOf(currentBoard, 64);
-            // store piece and put empty char in place
-            char piece = newBoard[m.from];
-            newBoard[m.from] = '.';
-            char placed = piece;
-            // Promotion logic for pawns
-            if (m.promo != 0 && (piece == 'P' || piece == 'p')) {
-                placed = (Character.isUpperCase(piece)) ? Character.toUpperCase(m.promo) : Character.toLowerCase(m.promo);
-            }
-            // put the piece at the to index
-            newBoard[m.to] = placed;
+        private static int getPieceIndex(char c) {
+            return switch (c) {
+                case 'P' -> 0; case 'N' -> 1; case 'B' -> 2; case 'R' -> 3; case 'Q' -> 4; case 'K' -> 5;
+                case 'p' -> 6; case 'n' -> 7; case 'b' -> 8; case 'r' -> 9; case 'q' -> 10; case 'k' -> 11;
+                default -> -1;
+            };
+        }
 
-            // Castling
-            // copy castling rights of current board
-            boolean wK = whiteKingSideCastle;
-            boolean wQ = whiteQueenSideCastle;
-            boolean bK = blackKingSideCastle;
-            boolean bQ = blackQueenSideCastle;
-            // if king moves remove castling rights
-            if (piece == 'K') {
-                wK = false;
-                wQ = false;
+        // Helper to get piece at a square (useful for debugging/UI)
+        char getPieceAt(int sq) {
+            long bit = 1L << sq;
+            if ((wp & bit) != 0) return 'P'; if ((wn & bit) != 0) return 'N';
+            if ((wb & bit) != 0) return 'B'; if ((wr & bit) != 0) return 'R';
+            if ((wq & bit) != 0) return 'Q'; if ((wk & bit) != 0) return 'K';
+            if ((bp & bit) != 0) return 'p'; if ((bn & bit) != 0) return 'n';
+            if ((bb & bit) != 0) return 'b'; if ((br & bit) != 0) return 'r';
+            if ((bq & bit) != 0) return 'q'; if ((bk & bit) != 0) return 'k';
+            return '.';
+        }
+
+        void printBoard() {
+            System.out.println();
+            for (int rank = 7; rank >= 0; rank--) {
+                System.out.print((rank + 1) + "  "); // Rank labels (8-1)
+                for (int file = 0; file < 8; file++) {
+                    int sq = rank * 8 + file;
+                    System.out.print(getPieceAt(sq) + " ");
+                }
+                System.out.println();
             }
-            if (piece == 'k') {
-                bK = false;
-                bQ = false;
-            }
-            // if rook moves for the first time, remove rights
-            if (m.from == 0) wQ = false;
-            if (m.from == 7) wK = false;
-            if (m.from == 56) bQ = false;
-            if (m.from == 63) bK = false;
-            // if rook gets captured while in their initial square, remove rights
-            if (m.to == 0) wQ = false;
-            if (m.to == 7) wK = false;
-            if (m.to == 56) bQ = false;
-            if (m.to == 63) bK = false;
-            // move the rook if a castling move occurs
-            // white king-side
-            if (piece == 'K' && m.from == 4 && m.to == 6) {
-                newBoard[7] = '.';
-                newBoard[5] = 'R';
-            }
-            // white queen-side
-            if (piece == 'K' && m.from == 4 && m.to == 2) {
-                newBoard[0] = '.';
-                newBoard[3] = 'R';
-            }
-            // black king-side
-            if (piece == 'k' && m.from == 60 && m.to == 62) {
-                newBoard[63] = '.';
-                newBoard[61] = 'r';
-            }
-            // black queen-side
-            if (piece == 'k' && m.from == 60 && m.to == 58) {
-                newBoard[56] = '.';
-                newBoard[59] = 'r';
+            System.out.println("\n   a b c d e f g h"); // File labels (a-h)
+            System.out.println();
+        }
+
+        Position makeMove(int m) {
+            // 1. Setup new piece bitboards
+            long[] nextPieces = {wp, wn, wb, wr, wq, wk, bp, bn, bb, br, bq, bk};
+
+            int from = Move.getFrom(m);
+            int to = Move.getTo(m);
+            int promo = Move.getPromo(m);
+            long fromBit = 1L << from;
+            long toBit = 1L << to;
+            long moveMask = fromBit | toBit;
+
+            // 2. Identify the moving piece and its color
+            int movingPieceIdx = -1;
+            for (int i = 0; i < 12; i++) {
+                if ((nextPieces[i] & fromBit) != 0) {
+                    movingPieceIdx = i;
+                    break;
+                }
             }
 
-            return new Position(newBoard, !whiteToMove, wK, wQ, bK, bQ);
+            // 3. Handle Captures (Regular)
+            if ((allPieces & toBit) != 0) {
+                // Find and remove the captured piece from its bitboard
+                for (int i = 0; i < 12; i++) {
+                    if ((nextPieces[i] & toBit) != 0) {
+                        nextPieces[i] ^= toBit;
+                        break;
+                    }
+                }
+            }
+
+            // 4. Handle En Passant Capture
+            int nextEpSq = -1;
+            if (ENABLE_EN_PASSANT && (movingPieceIdx == 0 || movingPieceIdx == 6) && to == enPassantSq) {
+                int capturedPawnSq = whiteToMove ? (to - 8) : (to + 8);
+                nextPieces[whiteToMove ? 6 : 0] ^= (1L << capturedPawnSq); // Remove enemy pawn
+            }
+
+            // 5. Move the piece
+            nextPieces[movingPieceIdx] ^= moveMask;
+
+            // 6. Handle Promotion
+            if (promo != 0 && (movingPieceIdx == 0 || movingPieceIdx == 6)) {
+                nextPieces[movingPieceIdx] ^= toBit; // Remove pawn from 'to' square
+                int promoIdx = (whiteToMove ? 0 : 6) + (promo == 1 ? 4 : promo == 4 ? 1 : promo == 2 ? 3 : 2);
+                // Note: Mapping our promo codes (1:q, 2:r, 3:b, 4:n) to our 12-index array
+                int actualPromoIdx = whiteToMove ? (promo == 1 ? 4 : promo == 2 ? 3 : promo == 3 ? 2 : 1)
+                        : (promo == 1 ? 10 : promo == 2 ? 9 : promo == 3 ? 8 : 7);
+                nextPieces[actualPromoIdx] |= toBit;
+            }
+
+            // 7. Handle Double Pawn Push (Set next EP Square)
+            if ((movingPieceIdx == 0 || movingPieceIdx == 6) && Math.abs(to - from) == 16) {
+                nextEpSq = (from + to) / 2;
+            }
+
+            // 8. Handle Castling Rights & Rook Movement
+            boolean wK = whiteKingSideCastle, wQ = whiteQueenSideCastle;
+            boolean bK = blackKingSideCastle, bQ = blackQueenSideCastle;
+
+            // If king or rook moves, or rook is captured, update rights
+            if (from == 4 || to == 4) { wK = false; wQ = false; }
+            if (from == 60 || to == 60) { bK = false; bQ = false; }
+            if (from == 0 || to == 0) wQ = false;
+            if (from == 7 || to == 7) wK = false;
+            if (from == 56 || to == 56) bQ = false;
+            if (from == 63 || to == 63) bK = false;
+
+            // Move Rooks for Castling
+            if (movingPieceIdx == 5) { // White King
+                if (from == 4 && to == 6) nextPieces[3] ^= (1L << 7 | 1L << 5); // h1 to f1
+                if (from == 4 && to == 2) nextPieces[3] ^= (1L << 0 | 1L << 3); // a1 to d1
+            } else if (movingPieceIdx == 11) { // Black King
+                if (from == 60 && to == 62) nextPieces[9] ^= (1L << 63 | 1L << 61); // h8 to f8
+                if (from == 60 && to == 58) nextPieces[9] ^= (1L << 56 | 1L << 59); // a8 to d8
+            }
+
+            return new Position(nextPieces, !whiteToMove, wK, wQ, bK, bQ, nextEpSq);
         }
 
         /**
@@ -848,387 +856,270 @@ public class Main {
             return new boolean[]{wk, wQ, bK, bQ};
         }
 
+        /**
+         * Ensures that adding an offset doesn't "wrap around" the board edges.
+         */
+        private boolean isWrap(int from, int to, int offset) {
+            // (x & 7) is exactly the same as (x % 8) for positive integers
+            int fromFile = from & 7;
+            int toFile = to & 7;
+            int fileDiff = Math.abs(toFile - fromFile);
+
+            // Vertical moves (offset 8) must stay in the same file
+            if (Math.abs(offset) == 8) return fileDiff != 0;
+
+            // Sliding/Diagonal moves must only move exactly 1 file per step
+            return fileDiff != 1;
+        }
+
         // goes through pseudo-legal moves to see if any move puts the King in check
-        List<Move> legalMoves() {
-            List<Move> out = new ArrayList<>();
-            for (Move m : pseudoLegalMoves()) {
-                // System.out.println(m.from + ", " + m.to + ", " + m.promo);
-                // make the move to test it
-                Position newPos = makeMove(m);
-                // add the move if the move does not end in check of the King
-                if (!newPos.inCheck(!newPos.whiteToMove)) {
+        MoveList legalMoves() {
+            MoveList out = new MoveList();
+            MoveList pseudo = pseudoLegalMoves();
+
+            for (int i = 0; i < pseudo.count; i++) {
+                int m = pseudo.moves[i];
+                Position nextPos = makeMove(m);
+
+                // After we move, we check if OUR king is now in check.
+                // !whiteToMove is the correct check here because makeMove toggles the turn.
+                if (!nextPos.inCheck(!nextPos.whiteToMove)) {
                     out.add(m);
                 }
             }
             return out;
         }
 
-        // looks for King by looping through all squares and calls isSquareAttacked
-        boolean inCheck(boolean whiteKing) {
-            int kingSquare = -1;
-            char king = whiteKing ? 'K' : 'k';
-            // look for correct side King piece
-            for (int i = 0; i < 64; i++)
-                if (currentBoard[i] == king) {
-                    kingSquare = i;
-                    break;
-                }
-            if (kingSquare < 0) return true; // king missing => treat as in check
-            return isSquareAttacked(kingSquare, !whiteKing);
+        /**
+         * Finds the king square bitwise and checks for attackers.
+         */
+        boolean inCheck(boolean isWhiteKing) {
+            long kingBoard = isWhiteKing ? wk : bk;
+
+            // If there's no king (shouldn't happen in real games), we're effectively in check.
+            if (kingBoard == 0) return true;
+
+            // Long.numberOfTrailingZeros(long) is a CPU-level instruction that
+            // instantly gives us the index (0-63) of the set bit.
+            int kingSq = Long.numberOfTrailingZeros(kingBoard);
+
+            // Check if the enemy (the side that ISN'T the king) attacks this square.
+            return isSquareAttacked(kingSq, !isWhiteKing);
         }
 
-        /**
-         * Determines whether a given square is attacked by the opponent.
-         *
-         * @param squareIndex Index (0–63) of the square being tested
-         * @param attackedByWhite true if checking attacks from White, false for Black
-         * @return true if the square is under attack, false otherwise
-         */
-        boolean isSquareAttacked(int squareIndex, boolean attackedByWhite) {
-            // get rank and file of the square
-            int rank = squareIndex / 8;
-            int file = squareIndex % 8;
+        boolean isSquareAttacked(int sq, boolean attackedByWhite) {
+            long bit = 1L << sq;
 
-            // pawns
+            // 1. Attacked by Pawns
+            // If White attacks, the pawn must be below the square.
             if (attackedByWhite) {
-                // ignore check if the pawn position is out of bounds
-                // white pawns attack upward so check squares diagonally below square
-                if (rank > 0 && file > 0 && currentBoard[(rank - 1) * 8 + (file - 1)] == 'P') return true;
-                if (rank > 0 && file < 7 && currentBoard[(rank - 1) * 8 + (file + 1)] == 'P') return true;
-
+                if (((bit >> 7) & wp & ~FILE_A) != 0) return true;
+                if (((bit >> 9) & wp & ~FILE_H) != 0) return true;
             } else {
-                // black pawns attack downward so check squares diagonally above square
-                if (rank < 7 && file > 0 && currentBoard[(rank + 1) * 8 + (file - 1)] == 'p') return true;
-                if (rank < 7 && file < 7 && currentBoard[(rank + 1) * 8 + (file + 1)] == 'p') return true;
+                if (((bit << 7) & bp & ~FILE_H) != 0) return true;
+                if (((bit << 9) & bp & ~FILE_A) != 0) return true;
             }
 
-            // knights
-            int[] knightOffsets = {-17, -15, -10, -6, 6, 10, 15, 17};
-            for (int offset : knightOffsets) {
-                int targetIndex = squareIndex + offset;
-                // Check board bounds, skips one iteration if out
-                if (targetIndex < 0 || targetIndex >= 64) continue;
-                // get possible knight's rank and file
-                int targetRank = targetIndex / 8;
-                int targetFile = targetIndex % 8;
-                int rankDiff = Math.abs(targetRank - rank);
-                int fileDiff = Math.abs(targetFile - file);
+            // 2. Attacked by Knights (Lookup Table)
+            long enemyKnights = attackedByWhite ? wn : bn;
+            if ((KNIGHT_ATTACKS[sq] & enemyKnights) != 0) return true;
 
-                // Validate correct L-shape movement (prevents wraparound)
-                if (!((rankDiff == 1 && fileDiff == 2) || (rankDiff == 2 && fileDiff == 1))) continue;
-                // check the check at the correct offsets
-                char piece = currentBoard[targetIndex];
-                // if piece is a knight return true
-                if (attackedByWhite && piece == 'N') return true;
-                if (!attackedByWhite && piece == 'n') return true;
-            }
+            // 3. Attacked by Kings (Lookup Table)
+            long enemyKing = attackedByWhite ? wk : bk;
+            if ((KING_ATTACKS[sq] & enemyKing) != 0) return true;
 
-            // Sliding Pieces: Rook, Bishop, Queen, and King
-            // loop through all directions array
-            for (int dirIndex = 0; dirIndex < QUEEN_DIRECTIONS.length; dirIndex++) {
-                // get inner array and step in the direction from the square
-                int fileStep = QUEEN_DIRECTIONS[dirIndex][0];
-                int rankStep = QUEEN_DIRECTIONS[dirIndex][1];
-                int currentRank = rank + rankStep;
-                int currentFile = file + fileStep;
-
-                // traverse outward in this direction as long as it is within bounds
-                while (currentRank >= 0 && currentRank < 8 && currentFile >= 0 && currentFile < 8) {
-                    // get piece index and char from board
-                    int currentIndex = currentRank * 8 + currentFile;
-                    char piece = currentBoard[currentIndex];
-                    // keep stepping as long as it is empty
-                    if (piece != '.') {
-                        boolean isWhitePiece = Character.isUpperCase(piece);
-
-                        // only consider opponent's pieces
-                        if (isWhitePiece == attackedByWhite) {
-                            // change to uppercase to simpler logic below
-                            char pieceType = Character.toUpperCase(piece);
-                            boolean isRookDirection = (dirIndex < 4);
-                            boolean isBishopDirection = (dirIndex >= 4);
-                            // queen (moves in all directions)
-                            if (pieceType == 'Q') return true;
-                            // rook (orthogonal)
-                            if (isRookDirection && pieceType == 'R') return true;
-                            // bishop (diagonal)
-                            if (isBishopDirection && pieceType == 'B') return true;
-                            // king (only valid if 1 square away)
-                            // might not be necessary for inCheck since opponent's King cannot check the King
-                            // but still useful to see if opponent's King can attack other pieces
-                            if (pieceType == 'K' &&
-                                    Math.max(Math.abs(currentRank - rank), Math.abs(currentFile - file)) == 1) {
-                                return true;
-                            }
-                        }
-
-                        // Stop scanning in this direction after hitting any piece
-                        break;
-                    }
-                    // continue to next step in the direction of choice
-                    currentRank += rankStep;
-                    currentFile += fileStep;
-                }
-            }
-
-            // redundant safety check for king attacks (covers edge cases)
-            // loops through all 8 adjacent squares
-            for (int r = rank - 1; r <= rank + 1; r++) {
-                for (int f = file - 1; f <= file + 1; f++) {
-                    // check for board bound violations
-                    if (r < 0 || r >= 8 || f < 0 || f >= 8) continue;
-                    // skips the middle square
-                    if (r == rank && f == file) continue;
-
-                    char piece = currentBoard[r * 8 + f];
-                    if (attackedByWhite && piece == 'K') return true;
-                    if (!attackedByWhite && piece == 'k') return true;
-                }
-            }
+            // 4. Attacked by Sliders (Rook, Bishop, Queen)
+            // We reuse the slider logic but return true immediately upon a hit
+            if (checkSliderAttack(sq, attackedByWhite)) return true;
 
             return false;
         }
 
-        /**
-         * Generates all pseudo-legal moves for the current position.
-         *
-         * Pseudo-legal = follows piece movement rules ONLY.
-         * Does NOT check for:
-         *  - king in check
-         *  - pinned pieces
-         *  - illegal castling conditions
-         *
-         * @return List of all pseudo-legal moves for the side to move
-         */
-        List<Move> pseudoLegalMoves() {
-            List<Move> moveList = new ArrayList<>();
-            // iterate through all 64 squares
-            for (int squareIndex = 0; squareIndex < 64; squareIndex++) {
+        private boolean checkSliderAttack(int sq, boolean white) {
+            long enemyRooks = white ? (wr | wq) : (br | bq);
+            long enemyBishops = white ? (wb | wq) : (bb | bq);
 
-                char piece = currentBoard[squareIndex];
-                // skip empty squares
-                if (piece == '.') continue;
-
-                // determine piece color and generate for correct color
-                boolean isWhitePiece = Character.isUpperCase(piece);
-                if (isWhitePiece != whiteToMove) continue;
-
-                // normalize piece type (uppercase for switch logic)
-                char pieceType = Character.toUpperCase(piece);
-                switch (pieceType) {
-                    case 'P':
-                        genPawn(moveList, squareIndex, isWhitePiece);
-                        break;
-
-                    case 'N':
-                        genKnight(moveList, squareIndex, isWhitePiece);
-                        break;
-
-                    case 'B':
-                        genSlidingPieces(moveList, squareIndex, isWhitePiece, BISHOP_DIRECTIONS);
-                        break;
-
-                    case 'R':
-                        genSlidingPieces(moveList, squareIndex, isWhitePiece, ROOK_DIRECTIONS);
-                        break;
-
-                    case 'Q':
-                        genSlidingPieces(moveList, squareIndex, isWhitePiece, QUEEN_DIRECTIONS);
-                        break;
-
-                    case 'K':
-                        genKing(moveList, squareIndex, isWhitePiece);
-                        break;
+            // Check Orthogonals (Rook/Queen)
+            for (int offset : ROOK_OFFSETS) {
+                int current = sq;
+                while (true) {
+                    int next = current + offset;
+                    if (next < 0 || next >= 64 || isWrap(current, next, offset)) break;
+                    long bit = 1L << next;
+                    if ((enemyRooks & bit) != 0) return true;
+                    if ((allPieces & bit) != 0) break; // Blocked by any piece
+                    current = next;
                 }
+            }
+
+            // Check Diagonals (Bishop/Queen)
+            for (int offset : BISHOP_OFFSETS) {
+                int current = sq;
+                while (true) {
+                    int next = current + offset;
+                    if (next < 0 || next >= 64 || isWrap(current, next, offset)) break;
+                    long bit = 1L << next;
+                    if ((enemyBishops & bit) != 0) return true;
+                    if ((allPieces & bit) != 0) break; // Blocked by any piece
+                    current = next;
+                }
+            }
+            return false;
+        }
+
+        MoveList pseudoLegalMoves() {
+            MoveList moveList = new MoveList();
+
+            if (whiteToMove) {
+                genPawn(moveList, true);
+                genKnight(moveList, true);
+                genSlidingPieces(moveList, true, BISHOP_OFFSETS, wb);
+                genSlidingPieces(moveList, true, ROOK_OFFSETS, wr);
+                genSlidingPieces(moveList, true, QUEEN_OFFSETS, wq);
+                genKing(moveList, true);
+            } else {
+                genPawn(moveList, false);
+                genKnight(moveList, false);
+                genSlidingPieces(moveList, false, BISHOP_OFFSETS, bb);
+                genSlidingPieces(moveList, false, ROOK_OFFSETS, br);
+                genSlidingPieces(moveList, false, QUEEN_OFFSETS, bq);
+                genKing(moveList, false);
             }
 
             return moveList;
         }
 
-        void genPawn(List<Move> moveList, int fromSquare, boolean isWhite) {
-            int rank = fromSquare / 8;
-            int file = fromSquare % 8;
+        private void serializeMoves(MoveList moveList, int from, long destinations) {
+            while (destinations != 0) {
+                int to = Long.numberOfTrailingZeros(destinations);
+                moveList.add(Move.create(from, to, 0));
+                destinations &= (destinations - 1);
+            }
+        }
 
-            int forwardStep = isWhite ? 8 : -8; //bc of array style to move forward we actually move 8 spaces in the array
-            int startRank = isWhite ? 1 : 6; //the ranks on which pawns start
-            int promotionRank = isWhite ? 6 : 1; //pawn cannot legally exit on last rank so we prep for promotion on second to last rank
-
-            int oneForward = fromSquare + forwardStep; //space that is oneForward from current square
-
-            if (oneForward >= 0 && oneForward < 64 && currentBoard[oneForward] == '.') { //checks if the move is legal (if it stays on board and if it is on to an empty space)
-                if (rank == promotionRank) {
-                    moveList.add(new Move(fromSquare, oneForward, 'q')); //promotion list
-                    moveList.add(new Move(fromSquare, oneForward, 'n'));
-                    moveList.add(new Move(fromSquare, oneForward, 'b'));
-                    moveList.add(new Move(fromSquare, oneForward, 'r'));
+        private void serializePawnMoves(MoveList moveList, long destinations, int offset, boolean promotion) {
+            while (destinations != 0) {
+                int to = Long.numberOfTrailingZeros(destinations);
+                int from = to - offset;
+                if (promotion) {
+                    moveList.add(Move.create(from, to, 1)); // Queen
+                    moveList.add(Move.create(from, to, 4)); // Knight
+                    moveList.add(Move.create(from, to, 2)); // Rook
+                    moveList.add(Move.create(from, to, 3)); // Bishop
                 } else {
-                    moveList.add(new Move(fromSquare, oneForward, (char) 0)); //else if its not promoting just move up one space and no promo
+                    moveList.add(Move.create(from, to, 0));
                 }
-
-                int twoForward = fromSquare + (2 * forwardStep); //calculates space in the array which would be two forward
-                if (rank == startRank && twoForward >= 0 && twoForward < 64 && currentBoard[twoForward] == '.') { //makes sure space is empty, in bounds, and pawn is on starting rank.
-                    moveList.add(new Move(fromSquare, twoForward, (char) 0)); //if conditions are met you can move two spaces up.
-                }
+                destinations &= (destinations - 1);
             }
+        }
 
-            int[] captureFileSteps = {-1, 1}; //diagonally would be up and to the left or to the right. thats what this is for.
-            for (int fileStep : captureFileSteps) { //runs for every filestep in captureFileSteps
-                int targetFile = file + fileStep; //to get the correct file for capturing
-                if (targetFile < 0 || targetFile > 7) continue; //if outside board bounds it will skip current iteration
+        void genPawn(MoveList moveList, boolean isWhite) {
+            long enemies = isWhite ? blackPieces : whitePieces;
+            long empty = ~allPieces;
 
-                int targetRank = rank + (isWhite ? 1 : -1); //to get correct correct rank, (if its white it is 1 if not its -1 because the colors matter in which direction going)
-                if (targetRank < 0 || targetRank > 7) continue; //if out of bounds rank skip iteration of loop
+            if (isWhite) {
+                // Pushes
+                long singlePush = (wp << 8) & empty;
+                serializePawnMoves(moveList, singlePush & ~RANK_8, 8, false);
+                serializePawnMoves(moveList, singlePush & RANK_8, 8, true);
 
-                int toSquare = targetRank * 8 + targetFile; //this gives us a value in our 1D array for what square to go
-                char targetPiece = currentBoard[toSquare]; //here we check what is there
+                long doublePush = ((singlePush & RANK_3) << 8) & empty;
+                serializePawnMoves(moveList, doublePush, 16, false);
 
-                if (targetPiece == '.')
-                    continue; //if its empty continue/skip iteration since there is nothing to capture making it illegal to move there
+                // Captures
+                long capLeft = (wp << 7) & enemies & ~FILE_H;
+                serializePawnMoves(moveList, capLeft & ~RANK_8, 7, false);
+                serializePawnMoves(moveList, capLeft & RANK_8, 7, true);
 
-                boolean isTargetWhite = Character.isUpperCase(targetPiece); //checks to see if piece is uppercase(white) or lowercase(black)
-                if (isTargetWhite != isWhite) { //condition stating that if the piece colors are not the same then ....
-                    if (rank == promotionRank) { //if rank is a promotion rank then lets add possible promotions
-                        moveList.add(new Move(fromSquare, toSquare, 'q'));
-                        moveList.add(new Move(fromSquare, toSquare, 'n'));
-                        moveList.add(new Move(fromSquare, toSquare, 'b'));
-                        moveList.add(new Move(fromSquare, toSquare, 'r'));//add more promos
-                    } else {
-                        moveList.add(new Move(fromSquare, toSquare, (char) 0)); //if its not a promotion rank then just capture and dont promote
-                    }
+                long capRight = (wp << 9) & enemies & ~FILE_A;
+                serializePawnMoves(moveList, capRight & ~RANK_8, 9, false);
+                serializePawnMoves(moveList, capRight & RANK_8, 9, true);
+
+                // En Passant
+                if (enPassantSq != -1) {
+                    long epBit = (1L << enPassantSq);
+                    if (((wp << 7) & epBit & ~FILE_H) != 0) moveList.add(Move.create(enPassantSq - 7, enPassantSq, 0));
+                    if (((wp << 9) & epBit & ~FILE_A) != 0) moveList.add(Move.create(enPassantSq - 9, enPassantSq, 0));
+                }
+            } else {
+                // Black logic is mirrored (using >> and RANK_1/RANK_6)
+                long singlePush = (bp >> 8) & empty;
+                serializePawnMoves(moveList, singlePush & ~RANK_1, -8, false);
+                serializePawnMoves(moveList, singlePush & RANK_1, -8, true);
+
+                long doublePush = ((singlePush & RANK_6) >> 8) & empty;
+                serializePawnMoves(moveList, doublePush, -16, false);
+
+                long capLeft = (bp >> 9) & enemies & ~FILE_H;
+                serializePawnMoves(moveList, capLeft & ~RANK_1, -9, false);
+                serializePawnMoves(moveList, capLeft & RANK_1, -9, true);
+
+                long capRight = (bp >> 7) & enemies & ~FILE_A;
+                serializePawnMoves(moveList, capRight & ~RANK_1, -7, false);
+                serializePawnMoves(moveList, capRight & RANK_1, -7, true);
+
+                if (enPassantSq != -1) {
+                    long epBit = (1L << enPassantSq);
+                    if (((bp >> 9) & epBit & ~FILE_H) != 0) moveList.add(Move.create(enPassantSq + 9, enPassantSq, 0));
+                    if (((bp >> 7) & epBit & ~FILE_A) != 0) moveList.add(Move.create(enPassantSq + 7, enPassantSq, 0));
                 }
             }
         }
 
-        void genKnight(List<Move> moveList, int fromSquare, boolean isWhite) {
-            int rank = fromSquare / 8;
-            int file = fromSquare % 8;
+        void genKnight(MoveList moveList, boolean isWhite) {
+            long knights = isWhite ? wn : bn;
+            long friendly = isWhite ? whitePieces : blackPieces;
 
-            int[][] knightMoves = {
-                    {1, 2}, {2, 1},
-                    {2, -1}, {1, -2},
-                    {-1, -2}, {-2, -1},
-                    {-2, 1}, {-1, 2}
-            };
-
-            for (int[] move : knightMoves) {
-                int targetFile = file + move[0];
-                int targetRank = rank + move[1];
-
-                if (targetFile < 0 || targetFile > 7 || targetRank < 0 || targetRank > 7) continue;
-
-                int toSquare = targetRank * 8 + targetFile;
-                char targetPiece = currentBoard[toSquare];
-
-                if (targetPiece == '.') {
-                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
-                    continue;
-                }
-
-                boolean isTargetWhite = Character.isUpperCase(targetPiece);
-                if (isTargetWhite != isWhite) {
-                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
-                }
+            while (knights != 0) {
+                int from = Long.numberOfTrailingZeros(knights);
+                long moves = KNIGHT_ATTACKS[from] & ~friendly;
+                serializeMoves(moveList, from, moves);
+                knights &= (knights - 1);
             }
         }
 
-        void genSlidingPieces(List<Move> moveList, int fromSquare, boolean isWhite, int[][] directions) {
-            int rank = fromSquare / 8;
-            int file = fromSquare % 8;
-
-            for (int[] dir : directions) {
-                int fileStep = dir[0];
-                int rankStep = dir[1];
-
-                int currentRank = rank + rankStep;
-                int currentFile = file + fileStep;
-
-                // Slide in this direction
-                while (currentRank >= 0 && currentRank < 8 && currentFile >= 0 && currentFile < 8) {
-                    int toSquare = currentRank * 8 + currentFile;
-                    char piece = currentBoard[toSquare];
-
-                    if (piece == '.') {
-                        // Empty square => normal move
-                        moveList.add(new Move(fromSquare, toSquare, (char) 0));
-                    } else {
-                        boolean isTargetWhite = Character.isUpperCase(piece);
-                        if (isTargetWhite != isWhite) {
-                            // Enemy piece => capture
-                            moveList.add(new Move(fromSquare, toSquare, (char) 0));
-                        }
-                        // Stop sliding after hitting any piece
-                        break;
-                    }
-                    currentRank += rankStep;
-                    currentFile += fileStep;
-                }
-            }
-        }
-
-        void genKing(List<Move> moveList, int fromSquare, boolean isWhite) {
-            int r = fromSquare / 8;
-            int f = fromSquare % 8;
-
-            // Regular King piece movement one square
-            for (int dr = -1; dr <= 1; dr++) {
-                for (int df = -1; df <= 1; df++) {
-                    if (dr == 0 && df == 0) {
-                        continue;
-                    }
-                    int nr = r + dr;
-                    int nf = f + df;
-
-                    if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) {
-                        continue;
-                    }
-                    int to = nr * 8 + nf;
-                    char target = currentBoard[to];
-
-                    // for empty square or an opponents piece
-                    if (target == '.' || Character.isUpperCase(target) != isWhite) {
-                        moveList.add(new Move(fromSquare, to, (char)0));
-                    }
-                }
-            }
+        void genKing(MoveList moveList, boolean isWhite) {
+            int from = Long.numberOfTrailingZeros(isWhite ? wk : bk);
+            long friendly = isWhite ? whitePieces : blackPieces;
+            long moves = KING_ATTACKS[from] & ~friendly;
+            serializeMoves(moveList, from, moves);
 
             // Castling
-            // Redundant check to see if king is in the correct position to castle
-            if (isWhite && fromSquare == 4 && currentBoard[4] == 'K') {
-                // King-side (e1 → g1)
-                if (whiteKingSideCastle && currentBoard[5] == '.' && currentBoard[6] == '.' &&
-                        !isSquareAttacked(4, false) &&
-                        !isSquareAttacked(5, false) &&
-                        !isSquareAttacked(6, false) &&
-                        currentBoard[7] == 'R') {
-                    moveList.add(new Move(4, 6, '0')); // e1g1
-                }
-                // Queen-side (e1 → c1)
-                if (whiteQueenSideCastle && currentBoard[1] == '.' && currentBoard[2] == '.' && currentBoard[3] == '.' &&
-                        !isSquareAttacked(4, false) &&
-                        !isSquareAttacked(3, false) &&
-                        !isSquareAttacked(2, false) &&
-                        currentBoard[0] == 'R') {
-                    moveList.add(new Move(4, 2, '0')); // e1c1
-                }
+            if (isWhite) {
+                if (whiteKingSideCastle && (allPieces & 0x60L) == 0 && !isSquareAttacked(4, false) && !isSquareAttacked(5, false) && !isSquareAttacked(6, false))
+                    moveList.add(Move.create(4, 6, 0));
+                if (whiteQueenSideCastle && (allPieces & 0x0EL) == 0 && !isSquareAttacked(4, false) && !isSquareAttacked(3, false) && !isSquareAttacked(2, false))
+                    moveList.add(Move.create(4, 2, 0));
+            } else {
+                if (blackKingSideCastle && (allPieces & 0x6000000000000000L) == 0 && !isSquareAttacked(60, true) && !isSquareAttacked(61, true) && !isSquareAttacked(62, true))
+                    moveList.add(Move.create(60, 62, 0));
+                if (blackQueenSideCastle && (allPieces & 0x0E00000000000000L) == 0 && !isSquareAttacked(60, true) && !isSquareAttacked(59, true) && !isSquareAttacked(58, true))
+                    moveList.add(Move.create(60, 58, 0));
             }
-            // For black king
-            if (!isWhite && fromSquare == 60 && currentBoard[60] == 'k') {
-                // Black king-side (e8 → g8)
-                if (blackKingSideCastle && currentBoard[61] == '.' && currentBoard[62] == '.' &&
-                        !isSquareAttacked(60, true) &&
-                        !isSquareAttacked(61, true) &&
-                        !isSquareAttacked(62, true) &&
-                        currentBoard[63] == 'r') {
-                    moveList.add(new Move(60, 62, '0')); // e8g8
+        }
+
+        void genSlidingPieces(MoveList moveList, boolean isWhite, int[] offsets, long bitboard) {
+            long friendly = isWhite ? whitePieces : blackPieces;
+            long enemy = isWhite ? blackPieces : whitePieces;
+
+            while (bitboard != 0) {
+                int from = Long.numberOfTrailingZeros(bitboard);
+                for (int offset : offsets) {
+                    int current = from;
+                    while (true) {
+                        int next = current + offset;
+                        if (next < 0 || next >= 64 || isWrap(current, next, offset)) break;
+
+                        long bit = (1L << next);
+                        if ((friendly & bit) != 0) break; // Blocked by friend
+
+                        moveList.add(Move.create(from, next, 0));
+                        if ((enemy & bit) != 0) break; // Captured enemy and stop
+
+                        current = next;
+                    }
                 }
-                // Black queen-side (e8 → c8)
-                if (blackQueenSideCastle && currentBoard[57] == '.' && currentBoard[58] == '.' && currentBoard[59] == '.' &&
-                        !isSquareAttacked(60, true) &&
-                        !isSquareAttacked(59, true) &&
-                        !isSquareAttacked(58, true) &&
-                        currentBoard[56] == 'r') {
-                    moveList.add(new Move(60, 58, '0')); // e8c8
-                }
+                bitboard &= (bitboard - 1);
             }
         }
     }

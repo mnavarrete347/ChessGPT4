@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * UCI engine: uses alpha-beta pruning to find bestmove.
- * Legal move generation, promotion, and castling are included (no en-passant).
+ * Minimal UCI engine: plays the first legal move it finds.
+ * Legal move generation is included (no castling, no en-passant; promotions -> queen only).
  */
 public class Main {
     // sliding piece directions
@@ -20,6 +20,67 @@ public class Main {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
+    static final int[] PAWN_TABLE = {
+            0,  0,  0,  0,  0,  0,  0,  0,
+            50, 50, 50, 50, 50, 50, 50, 50,
+            10, 10, 20, 30, 30, 20, 10, 10,
+            5,  5, 10, 25, 25, 10,  5,  5,
+            0,  0,  0, 20, 20,  0,  0,  0,
+            5, -5,-10,  0,  0,-10, -5,  5,
+            5, 10, 10,-20,-20, 10, 10,  5,
+            0,  0,  0,  0,  0,  0,  0,  0
+    };
+    static final int[] KNIGHT_TABLE = {
+            -50,-40,-30,-30,-30,-30,-40,-50,
+            -40,-20,  0,  0,  0,  0,-20,-40,
+            -30,  0, 10, 15, 15, 10,  0,-30,
+            -30,  5, 15, 20, 20, 15,  5,-30,
+            -30,  0, 15, 20, 20, 15,  0,-30,
+            -30,  5, 10, 15, 15, 10,  5,-30,
+            -40,-20,  0,  5,  5,  0,-20,-40,
+            -50,-40,-30,-30,-30,-30,-40,-50
+    };
+    static final int[] BISHOP_TABLE = {
+            -20,-10,-10,-10,-10,-10,-10,-20,
+            -10,  5,  0,  0,  0,  0,  5,-10,
+            -10, 10, 10, 10, 10, 10, 10,-10,
+            -10,  0, 10, 10, 10, 10,  0,-10,
+            -10,  5,  5, 10, 10,  5,  5,-10,
+            -10,  0,  5, 10, 10,  5,  0,-10,
+            -10,  0,  0,  0,  0,  0,  0,-10,
+            -20,-10,-10,-10,-10,-10,-10,-20
+    };
+    static final int[] ROOK_TABLE = {
+            0,  0,  5, 10, 10,  5,  0,  0,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            -5,  0,  0,  0,  0,  0,  0, -5,
+            5, 10, 10, 10, 10, 10, 10,  5,
+            0,  0,  0,  0,  0,  0,  0,  0
+    };
+    static final int[] QUEEN_TABLE = {
+            -20,-10,-10, -5, -5,-10,-10,-20,
+            -10,  0,  0,  0,  0,  0,  0,-10,
+            -10,  0,  5,  5,  5,  5,  0,-10,
+            -5,  0,  5,  5,  5,  5,  0, -5,
+            0,  0,  5,  5,  5,  5,  0, -5,
+            -10,  5,  5,  5,  5,  5,  0,-10,
+            -10,  0,  5,  0,  0,  0,  0,-10,
+            -20,-10,-10, -5, -5,-10,-10,-20
+    };
+    static final int[] KING_TABLE = {
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -30,-40,-40,-50,-50,-40,-40,-30,
+            -20,-30,-30,-40,-40,-30,-30,-20,
+            -10,-20,-20,-20,-20,-20,-20,-10,
+            20, 20,  0,  0,  0,  0, 20, 20,
+            20, 30, 10,  0,  0, 10, 30, 20
+    };
+
     // Parameters for move searching
     static int max_depth = 100;
     static long startTime;
@@ -28,7 +89,7 @@ public class Main {
 
     /**
      * Main method that deals with communication and game logic.
-     * Uses BufferedReader and PrintWriter to communicate over character streams
+     * Uses BufferedReader and PrintWriter to communicate over streams
      *
      */
     public static void main(String[] args) throws Exception {
@@ -52,20 +113,45 @@ public class Main {
                 pos = Position.startPos();
             } else if (line.startsWith("position")) {
                 pos = parsePosition(line, pos);
-                Position.printBoardWithIndices(pos.currentBoard);
             } else if (line.startsWith("go")) {
-                //parseGo(line);
-                //Move m = iterativeDepthSearch(pos);
-                Move m = null;
+                parseGo(line);
+                Move m = iterativeDepthSearch(pos);
                 if (m == null) out.println("bestmove 0000");
                 else out.println("bestmove " + m.toUci());
-                Position.printBoardWithIndices(pos.makeMove(m).currentBoard);
+            } else if(line.startsWith("perft")) {
+                runPerft(pos, 1);
+                runPerft(pos, 2);
+                runPerft(pos, 3);
+                runPerft(pos, 4);
+                runPerft(pos, 5);
             } else if (line.equals("quit")) {
                 break;
             }
             // ignore other UCI commands (setoption, etc.)
         }
         out.flush();
+    }
+
+    public static void runPerft(Position pos, int depth) {
+        long start = System.nanoTime();
+        long nodes = perft(pos, depth);
+        long end = System.nanoTime();
+
+        double durationSeconds = (end - start) / 1_000_000_000.0;
+        long nps = (long) (nodes / durationSeconds);
+
+        System.out.printf("Depth %d: %d nodes in %.3f seconds (NPS: %d)%n",
+                depth, nodes, durationSeconds, nps);
+    }
+
+    private static long perft(Position pos, int depth) {
+        if (depth == 0) return 1;
+        long nodes = 0;
+        List<Move> moves = pos.legalMoves();
+        for (Move i : moves) {
+            nodes += perft(pos.makeMove(i), depth - 1);
+        }
+        return nodes;
     }
 
     /**
@@ -87,7 +173,7 @@ public class Main {
         if (i < tokens.length && tokens[i].equals("startpos")) {
             pos = Position.startPos();
             i++;
-        // second token is "fen" -> FEN format
+            // second token is "fen" -> FEN format
         } else if (i < tokens.length && tokens[i].equals("fen")) {
             i++;
             // FEN has 6 fields
@@ -116,12 +202,251 @@ public class Main {
         return pos;
     }
 
-    // Here goes move searching code
+
+    static void parseGo(String cmd) {
+        String[] tokens = cmd.trim().split("\\s+");
+
+        // Example inputs:
+        // "go"
+        // "go movetime 5000"
+        // "go depth 5"
+
+        for (int i = 1; i < tokens.length; i++) {
+
+            switch (tokens[i].toLowerCase()) {
+                case "movetime":
+                    if (i + 1 < tokens.length) {
+                        moveTimeMs = Integer.parseInt(tokens[i + 1]);
+                        i++; // skip value
+                    }
+                    break;
+
+                case "depth":
+                    if (i + 1 < tokens.length) {
+                        max_depth = Integer.parseInt(tokens[i + 1]);
+                        i++; // skip value
+                    }
+                    break;
+
+                default:
+                    moveTimeMs = 10000;
+                    max_depth = 100;
+                    break;
+            }
+        }
+    }
+
+    static Move iterativeDepthSearch(Position position) {
+        startTime = System.currentTimeMillis();
+        timeLimit = (long)(moveTimeMs * 0.85); // safety margin
+
+        Move bestMove = null;
+
+        for (int depth = 1; depth <= max_depth; depth++) {
+
+            Move currentBest = findBestMove(position, depth, bestMove);
+
+            if (System.currentTimeMillis() - startTime > timeLimit) {
+                break;
+            }
+
+            bestMove = currentBest;
+        }
+
+        return bestMove;
+    }
+
 
     /**
-     * Move class contains from index, to index and a character that determines piece promotion
+     * Explores the legal moves and finds the best move via min-max algorithm.
+     * Uses alpha and beta values to prune branches and speed up evaluation time.
+     * Stops recursion if time limit is reached.
      *
+     * @return value of the moves at each recursion and the score of the board at base case.
      */
+    static Move findBestMove(Position position, int depth, Move prevBest) {
+        // Generate all legal moves from the current position
+        List<Move> moves = position.legalMoves();
+
+        // return null if no legal moves
+        // Possible during checkmate or stalemate
+        if (moves.isEmpty()) return null;
+
+
+        orderMoves(position, moves);
+
+        // If there was a best move from a previous search depth,
+        // move it to the front so it gets searched first
+
+        if (prevBest != null && moves.contains(prevBest)) {
+            moves.remove(prevBest);
+            moves.addFirst(prevBest);
+        }
+
+
+        Move bestMove = null; // tracks best move found so far
+
+        // Initialize bestScore depending on whose turn it is:
+        // White wants the highest score, Black wants the lowest score
+        int bestScore = position.whiteToMove ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+
+        // Try each legal move
+        for (Move m : moves) {
+            // Stop searching if the allotted time has been exceeded
+            if (System.currentTimeMillis() - startTime > timeLimit) break;
+
+
+            Position next = position.makeMove(m); // get resulting position after making move
+
+            // Evaluate the resulting position using alpha-beta search
+            // depth - 1 because one move has already been made
+            int score = alphaBeta(next, depth - 1, Integer.MIN_VALUE, Integer.MAX_VALUE, !position.whiteToMove);
+
+            // If it's White's turn, choose the move with the highest score
+            if (position.whiteToMove) {
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = m;
+                }
+            }
+            // If it's Black's turn, choose the move with the lowest score
+            else {
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestMove = m;
+                }
+            }
+        }
+
+        // Print the best move found at this depth for debugging
+        if (bestMove != null) {
+            System.out.println("Move: " + bestMove.toUci() + " Score: " + bestScore + " Depth: " + depth);
+        }
+
+
+        return bestMove; // returns best move
+    }
+    static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
+        List<Move> moves = pos.legalMoves();
+        // base cases and time running out -> find score and return immediately
+        if (System.currentTimeMillis() - startTime > timeLimit) return evaluate(pos);
+        if (depth == 0) return evaluate(pos);
+        // possible exception for checkmate or error
+        if (moves.isEmpty()) return evaluate(pos);
+
+        // pruning is faster when the best moves are at the top of the list for each layer searched
+        orderMoves(pos, moves);
+
+        if (maximizing) {
+            int value = Integer.MIN_VALUE;
+            for (Move m : moves) {
+                value = Math.max(value,
+                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, false));
+                alpha = Math.max(alpha, value);
+                if (alpha >= beta) break; // prune
+            }
+            return value;
+        } else {
+            int value = Integer.MAX_VALUE;
+            for (Move m : moves) {
+                value = Math.min(value,
+                        alphaBeta(pos.makeMove(m), depth - 1, alpha, beta, true));
+                beta = Math.min(beta, value);
+                if (beta <= alpha) break; // prune
+            }
+            return value;
+        }
+    }
+
+
+    static void orderMoves(Position position, List<Move> moves) {
+
+        moves.sort((a, b) -> {
+            int scoreA = weightedMoveScore(position, a);
+            int scoreB = weightedMoveScore(position, b);
+
+            return Integer.compare(scoreB, scoreA);
+        });
+    }
+
+    static int weightedMoveScore(Position pos, Move move) {
+
+        char target = pos.currentBoard[move.to];
+
+        // prioritize captures
+        if (target != '.') {
+            return pieceValue(target) * 10;
+        }
+        // prioritize promotions
+        if (move.promo != '0') {
+            return 900;
+        }
+        return 0;
+    }
+
+    static int evaluate(Position pos) {
+        int score = 0;
+
+        for (int i = 0; i < 64; i++) {
+            char p = pos.currentBoard[i];
+            if (p == '.') continue;
+
+            boolean isWhite = Character.isUpperCase(p);
+
+            int base = pieceValue(p);
+            int pst = 0;
+
+            int idx = isWhite ? i : mirror(i);
+
+            switch (Character.toUpperCase(p)) {
+                case 'P': pst = PAWN_TABLE[idx]; break;
+                case 'N': pst = KNIGHT_TABLE[idx]; break;
+                case 'B': pst = BISHOP_TABLE[idx]; break;
+                case 'R': pst = ROOK_TABLE[idx]; break;
+                case 'Q': pst = QUEEN_TABLE[idx]; break;
+                case 'K': pst = KING_TABLE[idx]; break;
+            }
+
+            int total = base + pst;
+
+            score += isWhite ? total : -total;
+        }
+
+        return score;
+    }
+
+    static int mirror (int square) {
+        return square ^ 56;
+    }
+
+    // simple method that assign each piece a value
+    static int pieceValue(char p) {
+        return switch (Character.toUpperCase(p)) {
+            case 'P' -> 100;
+            case 'N' -> 300;
+            case 'B' -> 300;
+            case 'R' -> 500;
+            case 'Q' -> 900;
+            case 'K' -> 10000;
+            default -> 0;
+        };
+    }
+
+
+    // ---------------- Chess core ----------------
+    /* Rand & File to index table for real board
+       File	a	b	c	d	e	f	g	h
+       Rank
+        8	56	57	58	59	60	61	62	63
+        7	48	49	50	51	52	53	54	55
+        6	40	41	42	43	44	45	46	47
+        5	32	33	34	35	36	37	38	39
+        4	24	25	26	27	28	29	30	31
+        3	16	17	18	19	20	21	22	23
+        2	8	9	10	11	12	13	14	15
+        1	0	1	2	3	4	5	6	7
+     */
+
     static final class Move {
         final int from; // 0..63
         final int to;   // 0..63
@@ -165,6 +490,18 @@ public class Main {
 
     // Class that uses fen format to keep track of moves internally
     // has a board and turn data
+    /* Rand & File to index table for internal board
+       File	0	1	2	3	4	5	6	7
+       Rank
+        7	56	57	58	59	60	61	62	63
+        6	48	49	50	51	52	53	54	55
+        5	40	41	42	43	44	45	46	47
+        4	32	33	34	35	36	37	38	39
+        3	24	25	26	27	28	29	30	31
+        2	16	17	18	19	20	21	22	23
+        1	8	9	10	11	12	13	14	15
+        0	0	1	2	3	4	5	6	7
+     */
 
     /**
      * Position class contains a character array represneting all 64 squares on the board
@@ -217,6 +554,7 @@ public class Main {
             System.out.println("\n   a  b  c  d  e  f  g  h\n");
         }
 
+
         // black at top of board, white at bottom of board
         static Position startPos() {
             return fromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -247,10 +585,10 @@ public class Main {
                 if (c == '/') {
                     rank--;
                     file = 0;
-                // skip squares at numbers of free spaces
+                    // skip squares at numbers of free spaces
                 } else if (Character.isDigit(c)) {
                     file += (c - '0');
-                // place the characters at correct index
+                    // place the characters at correct index
                 } else {
                     int idx = rank * 8 + file;
                     board[idx] = c;
@@ -398,6 +736,19 @@ public class Main {
             }
 
             // knights
+            // knights have fixed offsets relative to squareIndex
+            /* Example showcase of knightOffsets
+               File	0	1	2	3	4	5	6	7
+               Rank
+                7	.	.	.	.	.	.	.	.
+                6	.	.	.	.	.	.	.	.
+                5	.	.	.	.	.	.	.	.
+                4	.	.	15	.	17	.	.	.
+                3	.	6	.	.	.	10	.	.
+                2	.	.	-	Sq	+	.	.	.
+                1	.  -10	.	.	.  -6	.	.
+                0	.	.  -17	.  -15	.	.	.
+             */
             int[] knightOffsets = {-17, -15, -10, -6, 6, 10, 15, 17};
             for (int offset : knightOffsets) {
                 int targetIndex = squareIndex + offset;
@@ -408,7 +759,19 @@ public class Main {
                 int targetFile = targetIndex % 8;
                 int rankDiff = Math.abs(targetRank - rank);
                 int fileDiff = Math.abs(targetFile - file);
-
+                /* Example showcase of warparound knightOffsets
+                   File	0	1	2	3	4	5	6	7
+                   Rank
+                    7	.	.	.	.	.	.	.	.
+                    6	.	.	.	.	.	.	.	.
+                    5	.	.	.	.	.	.	.	.
+                    4	.	17	.	.	.	.	.	.
+                    3	.	.	10	.	.	.	.	15
+                    2	Sq	+	.	.	.	.	6	.
+                    1	.   .  -6	.	.   .	.	-
+                    0	.  -15   .	.   .	.  -10	.
+                    only 17, 10, -6, -15 are valid, -17 is out of bound, and 15, 6, -10 are warparounds
+                */
                 // Validate correct L-shape movement (prevents wraparound)
                 if (!((rankDiff == 1 && fileDiff == 2) || (rankDiff == 2 && fileDiff == 1))) continue;
                 // check the check at the correct offsets
@@ -594,39 +957,10 @@ public class Main {
             }
         }
 
+
         void genKnight(List<Move> moveList, int fromSquare, boolean isWhite) {
             int rank = fromSquare / 8;
             int file = fromSquare % 8;
-<<<<<<< HEAD
-        
-            int[][] knightMoves = {
-                    {1, 2}, {2, 1},
-                    {2, -1}, {1, -2},
-                    {-1, -2}, {-2, -1},
-                    {-2, 1}, {-1, 2}
-            };
-        
-            for (int[] move : knightMoves) {
-                int targetFile = file + move[0];
-                int targetRank = rank + move[1];
-        
-                if (targetFile < 0 || targetFile > 7 || targetRank < 0 || targetRank > 7) continue;
-        
-                int toSquare = targetRank * 8 + targetFile;
-                char targetPiece = currentBoard[toSquare];
-        
-                if (targetPiece == '.') {
-                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
-                    continue;
-                }
-        
-                boolean isTargetWhite = Character.isUpperCase(targetPiece);
-                if (isTargetWhite != isWhite) {
-                    moveList.add(new Move(fromSquare, toSquare, (char) 0));
-                }
-            }
-=======
->>>>>>> 292197b009e18759608d7b012d3cdf434005faae
 
             int[][] knightMoves = {
                     {1, 2}, {2, 1},
@@ -654,6 +988,7 @@ public class Main {
                     moveList.add(new Move(fromSquare, toSquare, (char) 0));
                 }
             }
+
         }
 
         void genSlidingPieces(List<Move> moveList, int fromSquare, boolean isWhite, int[][] directions) {
@@ -679,11 +1014,7 @@ public class Main {
                         boolean isTargetWhite = Character.isUpperCase(piece);
                         if (isTargetWhite != isWhite) {
                             // Enemy piece => capture
-<<<<<<< HEAD
-                           moveList.add(new Move(fromSquare, toSquare, (char) 0));
-=======
                             moveList.add(new Move(fromSquare, toSquare, (char) 0));
->>>>>>> 292197b009e18759608d7b012d3cdf434005faae
                         }
                         // Stop sliding after hitting any piece
                         break;
@@ -695,23 +1026,16 @@ public class Main {
         }
 
         void genKing(List<Move> moveList, int fromSquare, boolean isWhite) {
-<<<<<<< HEAD
-            // normal king moves...
-=======
-            int r = fromSquare / 8;
-            int f = fromSquare % 8;
+            int rank = fromSquare / 8;
+            int file = fromSquare % 8;
 
-            // Regular King piece movement one square
->>>>>>> 292197b009e18759608d7b012d3cdf434005faae
             for (int dr = -1; dr <= 1; dr++) {
                 for (int df = -1; df <= 1; df++) {
                     if (dr == 0 && df == 0) {
                         continue;
                     }
-                    int nr = r + dr;
-                    int nf = f + df;
-<<<<<<< HEAD
-=======
+                    int nr = rank + dr;
+                    int nf = file + df;
 
                     if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) {
                         continue;
@@ -722,20 +1046,6 @@ public class Main {
                     // for empty square or an opponents piece
                     if (target == '.' || Character.isUpperCase(target) != isWhite) {
                         moveList.add(new Move(fromSquare, to, (char)0));
-                    }
-                }
-            }
->>>>>>> 292197b009e18759608d7b012d3cdf434005faae
-
-                    if (nr < 0 || nr >= 8 || nf < 0 || nf >= 8) {
-                        continue;
-                    }
-                    int to = nr * 8 + nf;
-                    char target = currentBoard[to];
-
-                    // for empty square or an opponents piece
-                    if (target == '.' || Character.isUpperCase(target) != white) {
-                        ms.add(new Move(from, to, (char)0));
                     }
                 }
             }
