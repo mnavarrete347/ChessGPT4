@@ -1,15 +1,17 @@
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.util.Arrays;
-import ai.onnxruntime.*;
-import java.util.*;
 
 /**
  * UCI engine: uses alpha-beta pruning to find bestmove.
  * Legal move generation, promotion, and castling are included (no en-passant).
  */
 public class Main {
-    public static final boolean ENABLE_EN_PASSANT = false;
+    public static final boolean ENABLE_EN_PASSANT = true;
     // piece offsets and tables
     static final int[] ROOK_OFFSETS = {8, -8, 1, -1};
     static final int[] BISHOP_OFFSETS = {7, -7, 9, -9};
@@ -23,14 +25,14 @@ public class Main {
 
     // White Piece-Square Tables (Corrected for 0=a1 indexing)
     static final int[] PAWN_PST = {
-            0,  0,  0,  0,  0,  0,  0,  0,
-            5, 10, 10,-20,-20, 10, 10,  5,
-            5, -5,-10,  0,  0,-10, -5,  5,
-            0,  0,  0, 20, 20,  0,  0,  0,
-            5,  5, 10, 25, 25, 10,  5,  5,
+             0,  0,  0,  0,  0,  0,  0,  0,
+             5, 10, 10,-20,-20, 10, 10,  5,
+             5, -5,-10,  0,  0,-10, -5,  5,
+             0,  0,  0, 20, 20,  0,  0,  0,
+             5,  5, 10, 25, 25, 10,  5,  5,
             10, 10, 20, 30, 30, 20, 10, 10,
             50, 50, 50, 50, 50, 50, 50, 50,
-            0,  0,  0,  0,  0,  0,  0,  0
+             0,  0,  0,  0,  0,  0,  0,  0
     };
     static final int[] BISHOP_PST = {
             -20,-10,-10,-10,-10,-10,-10,-20,
@@ -43,14 +45,14 @@ public class Main {
             -20,-10,-10,-10,-10,-10,-10,-20
     };
     static final int[] ROOK_PST = {
-            0,  0,  0,  0,  0,  0,  0,  0,
-            5, 10, 10, 10, 10, 10, 10,  5,
+             0,  0,  0,  0,  0,  0,  0,  0,
+             5, 10, 10, 10, 10, 10, 10,  5,
             -5,  0,  0,  0,  0,  0,  0, -5,
             -5,  0,  0,  0,  0,  0,  0, -5,
             -5,  0,  0,  0,  0,  0,  0, -5,
             -5,  0,  0,  0,  0,  0,  0, -5,
             -5,  0,  0,  0,  0,  0,  0, -5,
-            0,  0,  5, 10, 10,  5,  0,  0
+             0,  0,  5, 10, 10,  5,  0,  0
     };
     static final int[] KNIGHT_PST = {
             -50,-40,-30,-30,-30,-30,-40,-50,
@@ -66,15 +68,15 @@ public class Main {
             -20,-10,-10, -5, -5,-10,-10,-20,
             -10,  0,  5,  0,  0,  0,  0,-10,
             -10,  5,  5,  5,  5,  5,  0,-10,
-            0,  0,  5,  5,  5,  5,  0, -5,
-            -5,  0,  5,  5,  5,  5,  0, -5,
+              0,  0,  5,  5,  5,  5,  0, -5,
+             -5,  0,  5,  5,  5,  5,  0, -5,
             -10,  0,  5,  5,  5,  5,  0,-10,
             -10,  0,  0,  0,  0,  0,  0,-10,
             -20,-10,-10, -5, -5,-10,-10,-20
     };
     static final int[] KING_PST = {
-            20, 30, 10,  0,  0, 10, 30, 20,
-            20, 20,  0,  0,  0,  0, 20, 20,
+             20, 30, 10,  0,  0, 10, 30, 20,
+             20, 20,  0,  0,  0,  0, 20, 20,
             -10,-20,-20,-20,-20,-20,-20,-10,
             -20,-30,-30,-40,-40,-30,-30,-20,
             -30,-40,-40,-50,-50,-40,-40,-30,
@@ -132,11 +134,6 @@ public class Main {
     static long startTime;
     static long timeLimit;
     static long moveTimeMs = 10000; // 10 sec default time
-    static int lastScore = 0;
-
-    // Parameters for Neural Network Engine
-    static final String modelPath = "models/chess_model.onnx";
-    static final String moveMapPath = "models/move_map.ser";
 
     /**
      * Main method that deals with communication and game logic.
@@ -148,16 +145,6 @@ public class Main {
         PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out)), true);
 
         Position pos = Position.startPos();
-        NeuralEngine nnEngine = null;
-
-        try {
-            Map<String, Integer> moveMap = loadMoveMap(moveMapPath);
-            nnEngine = new NeuralEngine(modelPath, moveMap);
-            System.out.println("info string Neural Engine loaded successfully.");
-        } catch (Exception e) {
-            System.out.println("info string Neural Engine failed: " + e.getMessage());
-            // Fallback: engine continues as a normal bitboard engine
-        }
 
         String line;
         while ((line = br.readLine()) != null) {
@@ -177,7 +164,7 @@ public class Main {
                 pos.printBoard();
             } else if (line.startsWith("go")) {
                 parseGo(line);
-                int m = iterativeSearch(pos, nnEngine);
+                int m = iterativeSearch(pos);
                 if (m == 0) out.println("bestmove 0000");
                 else out.println("bestmove " + Move.toUci(m));
                 pos = pos.makeMove(m);
@@ -216,17 +203,6 @@ public class Main {
             nodes += perft(pos.makeMove(moves.moves[i]), depth - 1);
         }
         return nodes;
-    }
-
-    /**
-     * Helper method to load the move map and suppress the 'unchecked' warning.
-     */
-    @SuppressWarnings("unchecked")
-    private static Map<String, Integer> loadMoveMap(String path) throws Exception {
-        try (FileInputStream fis = new FileInputStream(path);
-             ObjectInputStream ois = new ObjectInputStream(fis)) {
-            return (Map<String, Integer>) ois.readObject();
-        }
     }
 
     /**
@@ -310,98 +286,66 @@ public class Main {
         }
     }
 
-    static int iterativeSearch(Position pos, NeuralEngine nn) {
+    static int iterativeSearch(Position pos) {
         startTime = System.currentTimeMillis();
-        timeLimit = (long)(moveTimeMs * 0.9);
-
-        int rootNNMove = 0;
-
-        // Only prompt the NN if we have more than 1 second
-        if (moveTimeMs >= 800 && nn != null) {
-            try {
-                // We pass the current legal moves so the NN doesn't re-generate them
-                rootNNMove = nn.predictBestMove(pos, pos.legalMoves());
-            } catch (Exception e) {
-                System.out.println("NN Error: " + e.getMessage());
-            }
-        }
-
-        int bestMove = 0;
+        timeLimit = (long)(moveTimeMs * 0.85);
+        int bestMoveFound = 0;
 
         for (int depth = 1; depth <= max_depth; depth++) {
-            // Pass the rootNNMove down as a hint
-            int currentBest = findBest(pos, depth, bestMove, rootNNMove);
-
+            int m = findBest(pos, depth);
             if (System.currentTimeMillis() - startTime > timeLimit) break;
-
-            bestMove = currentBest;
-
-            // If we found a checkmate, we can stop searching deeper
-            if (Math.abs(lastScore) > 90000) break;
+            bestMoveFound = m;
         }
-
-        return bestMove;
+        return bestMoveFound;
     }
 
-    static int findBest(Position pos, int depth, int prevBest, int nnHint) {
+    static int findBest(Position pos, int depth) {
         MoveList moves = pos.legalMoves();
         if (moves.count == 0) return 0;
 
-        // Use the optimized move ordering with NN and PV (prevBest) hints
-        orderMoves(pos, moves, prevBest, nnHint);
+        orderMoves(pos, moves);
 
-        int bestM = moves.moves[0];
+        int bestMove = moves.moves[0];
         int alpha = -1000000;
         int beta = 1000000;
 
         for (int i = 0; i < moves.count; i++) {
             int m = moves.moves[i];
             Position next = pos.makeMove(m);
-
-            // Root call to negamax
-            // Note: nnHint and prevBest are passed as 0 to deeper levels
-            // because they only apply to the root position.
+            // We negate the result and flip alpha/beta because it's the opponent's turn
             int score = -negamax(next, depth - 1, -beta, -alpha);
 
             if (score > alpha) {
                 alpha = score;
-                bestM = m;
-                lastScore = score; // Update the score for the iterative search
+                bestMove = m;
             }
-
-            if (System.currentTimeMillis() - startTime > timeLimit) break;
         }
-        return bestM;
+        return bestMove;
     }
 
     static int negamax(Position pos, int depth, int alpha, int beta) {
-        // Check time limit
+        if (depth == 0) return evaluate(pos);
         if (System.currentTimeMillis() - startTime > timeLimit) return evaluate(pos);
 
-        // Base case: leaf node
-        if (depth == 0) return evaluate(pos);
-
-        MoveList moves = pos.pseudoLegalMoves();
+        MoveList moves = pos.pseudoLegalMoves(); // We'll filter legality inside
         int legalCount = 0;
 
-        // Order moves using MVV-LVA/PSTs (no NN hint at this depth)
-        orderMoves(pos, moves, 0, 0);
+        // Quick Move Ordering (See section 3)
+        orderMoves(pos, moves);
 
         for (int i = 0; i < moves.count; i++) {
             Position next = pos.makeMove(moves.moves[i]);
-            if (next.inCheck(!next.whiteToMove)) continue;
+            if (next.inCheck(!next.whiteToMove)) continue; // Basic legality check
             legalCount++;
 
-            // Recursive call with flipped alpha/beta
             int score = -negamax(next, depth - 1, -beta, -alpha);
 
-            if (score >= beta) return beta; // Beta-cutoff (pruning)
+            if (score >= beta) return beta; // Cutoff
             if (score > alpha) alpha = score;
         }
 
-        // Handle checkmate or stalemate
         if (legalCount == 0) {
-            return pos.inCheck(pos.whiteToMove) ? (-100000 + (max_depth - depth)) : 0;
+            return pos.inCheck(pos.whiteToMove) ? -100000 + depth : 0; // Mate or Stalemate
         }
 
         return alpha;
@@ -451,37 +395,23 @@ public class Main {
         return pstSum;
     }
 
-    static void orderMoves(Position pos, MoveList list, int prevBest, int nnHint) {
+    static void orderMoves(Position pos, MoveList list) {
         int[] scores = new int[list.count];
-
         for (int i = 0; i < list.count; i++) {
-            int m = list.moves[i];
-
-            // 1. Neural Network Hint gets top priority
-            if (m == nnHint) {
-                scores[i] = 20000;
-            }
-            // 2. Previous Best from shallower depth (PV move)
-            else if (m == prevBest) {
-                scores[i] = 10000;
-            }
-            // 3. Traditional Captures (MVV-LVA)
-            else {
-                scores[i] = scoreMove(pos, m);
-            }
+            scores[i] = scoreMove(pos, list.moves[i]);
         }
 
-        // Simple selection sort to bring best moves to the front
+        // Sort moves based on scores (Simple Selection Sort for small lists)
         for (int i = 0; i < list.count - 1; i++) {
             for (int j = i + 1; j < list.count; j++) {
                 if (scores[j] > scores[i]) {
-                    int tempM = list.moves[i];
+                    int tempMove = list.moves[i];
                     list.moves[i] = list.moves[j];
-                    list.moves[j] = tempM;
+                    list.moves[j] = tempMove;
 
-                    int tempS = scores[i];
+                    int tempScore = scores[i];
                     scores[i] = scores[j];
-                    scores[j] = tempS;
+                    scores[j] = tempScore;
                 }
             }
         }
@@ -516,89 +446,6 @@ public class Main {
             case 'K' -> 10000;
             default -> 0;
         };
-    }
-
-    public static class NeuralEngine {
-        private OrtEnvironment env;
-        private OrtSession session;
-        private String inputName;
-
-        // Use a primitive array for mapping to avoid HashMap lookups in the hot loop
-        private String[] intToMoveUci;
-
-        public NeuralEngine(String modelPath, Map<String, Integer> moveMap) throws Exception {
-            this.env = OrtEnvironment.getEnvironment();
-            this.session = env.createSession(modelPath, new OrtSession.SessionOptions());
-            this.inputName = session.getInputNames().iterator().next();
-
-            // Convert Map to a fast-access array
-            int maxIdx = 0;
-            for (int idx : moveMap.values()) if (idx > maxIdx) maxIdx = idx;
-            intToMoveUci = new String[maxIdx + 1];
-            for (Map.Entry<String, Integer> e : moveMap.entrySet()) {
-                intToMoveUci[e.getValue()] = e.getKey();
-            }
-        }
-
-        private float[][][][] boardToTensor(Position pos, MoveList legalMoves) {
-            float[][][][] tensor = new float[1][13][8][8];
-
-            // Channels 0-11: Pieces
-            // We access the bitboards directly from the Position class
-            long[] pieceBitboards = {pos.wp, pos.wn, pos.wb, pos.wr, pos.wq, pos.wk,
-                    pos.bp, pos.bn, pos.bb, pos.br, pos.bq, pos.bk};
-
-            for (int i = 0; i < 12; i++) {
-                long bb = pieceBitboards[i];
-                while (bb != 0) {
-                    int sq = Long.numberOfTrailingZeros(bb);
-                    // Bitboard index to Row/Col (Note: matches your mapping)
-                    tensor[0][i][sq / 8][sq % 8] = 1.0f;
-                    bb &= (bb - 1); // Clear the bit
-                }
-            }
-
-            // Channel 12: Legal move "To" squares
-            for (int i = 0; i < legalMoves.count; i++) {
-                int to = Move.getTo(legalMoves.moves[i]);
-                tensor[0][12][to / 8][to % 8] = 1.0f;
-            }
-
-            return tensor;
-        }
-
-        public int predictBestMove(Position pos, MoveList legalMoves) throws Exception {
-            float[][][][] inputData = boardToTensor(pos, legalMoves);
-
-            try (OnnxTensor inputTensor = OnnxTensor.createTensor(env, inputData);
-                 OrtSession.Result result = session.run(Collections.singletonMap(inputName, inputTensor))) {
-
-                float[][] output = (float[][]) result.get(0).getValue();
-                float[] logits = output[0];
-
-                // Avoid softmax if we only need the highest value (argmax is enough)
-                // But we keep it if you need the full probability distribution later
-                Integer[] indices = new Integer[logits.length];
-                for (int i = 0; i < logits.length; i++) indices[i] = i;
-
-                // Sort indices by raw logits (same order as softmax probabilities)
-                Arrays.sort(indices, (a, b) -> Float.compare(logits[b], logits[a]));
-
-                // Filter by legality using Move.toUci comparisons
-                for (int idx : indices) {
-                    String moveStr = intToMoveUci[idx];
-                    if (moveStr == null) continue;
-
-                    for (int i = 0; i < legalMoves.count; i++) {
-                        int m = legalMoves.moves[i];
-                        if (Move.toUci(m).equals(moveStr)) {
-                            return m; // Return the move as an int
-                        }
-                    }
-                }
-            }
-            return 0; // No move found
-        }
     }
 
     /**
