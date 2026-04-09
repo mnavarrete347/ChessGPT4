@@ -114,13 +114,10 @@ public class Main {
             } else if (line.startsWith("position")) {
                 pos = parsePosition(line, pos);
             } else if (line.startsWith("go")) {
-                List<Move> moves = pos.legalMoves();
-                if (moves.isEmpty()) {
-                    out.println("bestmove 0000");
-                } else {
-                    Move m = moves.get(0);
-                    out.println("bestmove " + m.toUci());
-                }
+                parseGo(line);
+                Move m = iterativeDepthSearch(pos);
+                if (m == null) out.println("bestmove 0000");
+                else out.println("bestmove " + m.toUci());
             } else if(line.startsWith("perft")) {
                 runPerft(pos, 1);
                 runPerft(pos, 2);
