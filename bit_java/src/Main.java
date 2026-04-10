@@ -11,7 +11,7 @@ import java.util.Arrays;
  * Legal move generation, promotion, and castling are included (no en-passant).
  */
 public class Main {
-    public static final boolean ENABLE_EN_PASSANT = true;
+    public static final boolean ENABLE_EN_PASSANT = false;
     // piece offsets and tables
     static final int[] ROOK_OFFSETS = {8, -8, 1, -1};
     static final int[] BISHOP_OFFSETS = {7, -7, 9, -9};
