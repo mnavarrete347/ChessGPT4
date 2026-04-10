@@ -1,0 +1,9 @@
+/var/spool/slurm/slurmd/job12918/slurm_script: line 9: module: command not found
+/var/spool/slurm/slurmd/job12918/slurm_script: line 10: module: command not found
+
+CondaError: Run 'conda init' before 'conda activate'
+
+Processing Files:   0%|          | 0/12 [00:00<?, ?it/s]Processing Files:   8%|▊         | 1/12 [02:07<23:20, 127.35s/it]Processing Files:  17%|█▋        | 2/12 [04:14<21:11, 127.16s/it]Processing Files:  17%|█▋        | 2/12 [04:29<22:26, 134.66s/it]
+slurmstepd: error: Job 12918 exceeded memory limit (34427180 > 33554432), being killed
+slurmstepd: error: Exceeded job memory limit
+slurmstepd: error: *** JOB 12918 ON cn01 CANCELLED AT 2026-03-30T21:31:30 ***

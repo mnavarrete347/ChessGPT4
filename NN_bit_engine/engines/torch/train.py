@@ -16,21 +16,28 @@ from model import ChessModel
 # ---------------------------------------------------------------------------
 PGN_DIR       = "../../data/pgn"
 MODEL_OUT_DIR = "../../models"
-LIMIT_GAMES   = 50_000
-SAMPLE_LIMIT  = 2_500_000
-BATCH_SIZE    = 512   # Raised from 64: fewer Python loop iters, better GPU util
-NUM_EPOCHS    = 50
+LIMIT_GAMES   = 200_000   # was 50,000  — more game diversity = better model
+SAMPLE_LIMIT  = 5_000_000 # was 2,500,000 — 32GB+ RAM can handle this
+BATCH_SIZE    = 1024      # was 512 — P100 has 16GB VRAM, keep it fed
+NUM_EPOCHS    = 100       # was 50 — previous model hadn't plateaued yet
 LEARNING_RATE = 0.0001
-LOG_INTERVAL  = 100   # print a batch-level update every N batches
-NUM_WORKERS   = 4     # parallel DataLoader workers; tune to your CPU core count
+LR_STEP_SIZE  = 20        # halve the LR every N epochs
+LR_GAMMA      = 0.5       # LR multiplier on each step (0.0001 -> 0.00005 -> ...)
+LOG_INTERVAL  = 500       # print a batch-level update every N batches
+NUM_WORKERS   = 8         # was 4 — more CPU cores available on server
+
+# NOTE: AMP (mixed precision) is intentionally disabled.
+# The Tesla P100 does not have fp16 tensor cores (that's Volta/Turing+),
+# so autocast would be slower and less numerically stable on this hardware.
+USE_AMP = False
 
 # ---------------------------------------------------------------------------
-# Optimized helpers (replaces auxiliary_func imports)
+# Optimized helpers
 # ---------------------------------------------------------------------------
 
 def board_to_matrix(board: Board) -> np.ndarray:
     """Build a (13, 8, 8) float32 matrix directly — avoids a later cast."""
-    matrix = np.zeros((13, 8, 8), dtype=np.float32)  # float32 from the start
+    matrix = np.zeros((13, 8, 8), dtype=np.float32)
     for square, piece in board.piece_map().items():
         row, col = divmod(square, 8)
         channel  = (piece.piece_type - 1) + (0 if piece.color else 6)
@@ -44,14 +51,9 @@ def board_to_matrix(board: Board) -> np.ndarray:
 def create_input_for_nn(games, sample_limit: int):
     """
     Convert games to (X, y) arrays while capping at sample_limit.
-
-    Key changes vs original:
-    - Pre-allocates X and y as contiguous numpy arrays instead of growing a
-      Python list and calling np.array() at the end. This avoids the 2x RAM
-      spike from materialising the full list + the final array simultaneously.
-    - Stops early once sample_limit is reached so we never build more data
-      than we need (original built everything first, then sliced).
-    - Uses float32 in board_to_matrix so no dtype cast is needed here.
+    - Pre-allocates X to avoid the 2x RAM spike from list -> np.array conversion.
+    - Stops early at sample_limit so we never build more data than needed.
+    - Uses float32 throughout so no dtype cast is needed.
     """
     X   = np.empty((sample_limit, 13, 8, 8), dtype=np.float32)
     y   = []
@@ -155,8 +157,8 @@ dataloader = DataLoader(
     dataset,
     batch_size         = BATCH_SIZE,
     shuffle            = True,
-    num_workers        = NUM_WORKERS,        # parallel CPU workers feed the GPU
-    pin_memory         = use_cuda,           # faster CPU->GPU transfers
+    num_workers        = NUM_WORKERS,
+    pin_memory         = use_cuda,          # faster CPU->GPU transfers
     persistent_workers = NUM_WORKERS > 0,   # avoids worker restart cost per epoch
 )
 
@@ -164,10 +166,16 @@ model     = ChessModel(num_classes=num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-# GradScaler + autocast: forward/backward in fp16 (faster, less GPU memory),
-# optimizer step stays in fp32 for numerical stability.
-scaler  = torch.cuda.amp.GradScaler(enabled=use_cuda)
-use_amp = use_cuda
+# Halves the learning rate every LR_STEP_SIZE epochs:
+#   Epoch  1-20:  lr = 0.0001
+#   Epoch 21-40:  lr = 0.00005
+#   Epoch 41-60:  lr = 0.000025
+#   Epoch 61-80:  lr = 0.0000125
+#   Epoch 81-100: lr = 0.00000625
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_GAMMA)
+
+# GradScaler: disabled on P100 (no fp16 tensor cores), kept for portability
+scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
 
 total_batches = len(dataloader)
 print(
@@ -175,7 +183,7 @@ print(
     f"Batch size: {BATCH_SIZE}  |  "
     f"Epochs: {NUM_EPOCHS}  |  "
     f"Workers: {NUM_WORKERS}  |  "
-    f"AMP: {use_amp}",
+    f"AMP: {USE_AMP}",
     flush=True
 )
 
@@ -193,14 +201,14 @@ for epoch in range(1, NUM_EPOCHS + 1):
     running_loss = 0.0
 
     for batch_idx, (inputs, labels) in enumerate(dataloader, start=1):
-        # non_blocking=True overlaps the transfer with GPU compute (requires pin_memory)
+        # non_blocking overlaps CPU->GPU transfer with compute (requires pin_memory)
         inputs = inputs.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
         # set_to_none=True skips the memset — faster than zeroing gradients
         optimizer.zero_grad(set_to_none=True)
 
-        with torch.autocast(device_type=device.type, enabled=use_amp):
+        with torch.autocast(device_type=device.type, enabled=USE_AMP):
             outputs = model(inputs)
             loss    = criterion(outputs, labels)
 
@@ -224,6 +232,10 @@ for epoch in range(1, NUM_EPOCHS + 1):
                 flush=True
             )
 
+    # Step the scheduler at the end of each epoch
+    scheduler.step()
+    current_lr = scheduler.get_last_lr()[0]
+
     epoch_time = time.time() - epoch_start
     avg_loss   = running_loss / total_batches
     minutes    = int(epoch_time // 60)
@@ -232,6 +244,7 @@ for epoch in range(1, NUM_EPOCHS + 1):
     print(
         f"Epoch {epoch}/{NUM_EPOCHS} complete | "
         f"Loss: {avg_loss:.4f} | "
+        f"LR: {current_lr:.8f} | "
         f"Time: {minutes}m{seconds}s",
         flush=True
     )
@@ -250,8 +263,13 @@ model_filename = (
     f"{SAMPLE_LIMIT // 1_000_000}M{(SAMPLE_LIMIT % 1_000_000) // 100_000}SMPL_"
     f"{LIMIT_GAMES // 1000}KGM.pth"
 )
+map_filename = (
+    f"move_to_int_{NUM_EPOCHS}EP_"
+    f"{SAMPLE_LIMIT // 1_000_000}M{(SAMPLE_LIMIT % 1_000_000) // 100_000}SMPL_"
+    f"{LIMIT_GAMES // 1000}KGM"
+)
 model_path   = os.path.join(MODEL_OUT_DIR, model_filename)
-mapping_path = os.path.join(MODEL_OUT_DIR, "heavy_move_to_int")
+mapping_path = os.path.join(MODEL_OUT_DIR, map_filename)
 
 print(f"\n--- Saving model to: {model_path} ---", flush=True)
 torch.save(model.state_dict(), model_path)
