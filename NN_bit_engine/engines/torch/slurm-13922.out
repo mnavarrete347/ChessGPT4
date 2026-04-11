@@ -1,0 +1,800 @@
+============================================================
+CHESS ENGINE TRAINING SCRIPT (with Evaluation Head)
+============================================================
+
+Found 12 PGN file(s) in '../../data/pgn'
+
+--- Loading games ---
+[1/12] Reading: ../../data/pgn/lichess_elite_2025-11_part5.pgn
+  -> Games loaded so far: 48029
+[2/12] Reading: ../../data/pgn/lichess_elite_2025-10_part2.pgn
+  -> Games loaded so far: 96079
+[3/12] Reading: ../../data/pgn/lichess_elite_2025-11_part6.pgn
+  -> Games loaded so far: 136007
+[4/12] Reading: ../../data/pgn/lichess_elite_2025-10_part3.pgn
+  -> Games loaded so far: 184168
+[5/12] Reading: ../../data/pgn/lichess_elite_2025-11_part2.pgn
+  -> Games loaded so far: 200000
+Reached limit of 200000 games. Stopping.
+Loaded 200000 games in 707.5s
+
+--- Converting games to board matrices (cap: 5,000,000) ---
+Samples built: 5,000,000  (609.8s)
+Outcome distribution — White: 2,089,774  Black: 1,860,237  Draw: 1,049,989
+
+--- Encoding moves ---
+Unique move classes: 1921
+
+--- Converting to PyTorch tensors (zero-copy) ---
+
+--- Setting up dataset, dataloader, and model ---
+/data03/home/kaungnyin/ChessGPT4/NN_bit_engine/engines/torch/train.py:132: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler    = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+Using device: cuda
+GPU: Tesla P100-PCIE-16GB
+Batches per epoch: 4,883  |  Batch size: 1024  |  Epochs: 150  |  Workers: 3  |  AMP: False  |  Policy/Value loss weights: 0.8/0.2
+
+--- Starting training ---
+============================================================
+  Epoch 1/150 | Batch 1,000/4,883 (20.5%) | Loss: 4.7109  [policy: 5.6787  value: 0.8396] | Elapsed: 14s
+  Epoch 1/150 | Batch 2,000/4,883 (41.0%) | Loss: 4.3447  [policy: 5.2001  value: 0.9233] | Elapsed: 26s
+  Epoch 1/150 | Batch 3,000/4,883 (61.4%) | Loss: 4.0910  [policy: 4.8832  value: 0.9219] | Elapsed: 37s
+  Epoch 1/150 | Batch 4,000/4,883 (81.9%) | Loss: 3.9023  [policy: 4.6473  value: 0.9224] | Elapsed: 49s
+Epoch 1/150 complete | Loss: 3.7617  [policy: 4.4769  value: 0.9010] | LR: 0.00010000 | Time: 0m59s
+  Epoch 2/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.9753  [policy: 3.5179  value: 0.8048] | Elapsed: 12s
+  Epoch 2/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.9310  [policy: 3.4640  value: 0.7987] | Elapsed: 23s
+  Epoch 2/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.8901  [policy: 3.4138  value: 0.7955] | Elapsed: 35s
+  Epoch 2/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.8524  [policy: 3.3686  value: 0.7876] | Elapsed: 46s
+Epoch 2/150 complete | Loss: 2.8206  [policy: 3.3300  value: 0.7831] | LR: 0.00010000 | Time: 0m56s
+  Epoch 3/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.6100  [policy: 3.0729  value: 0.7583] | Elapsed: 12s
+  Epoch 3/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.5889  [policy: 3.0473  value: 0.7555] | Elapsed: 247s
+  Epoch 3/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.5675  [policy: 3.0208  value: 0.7544] | Elapsed: 260s
+  Epoch 3/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.5474  [policy: 2.9962  value: 0.7525] | Elapsed: 273s
+Epoch 3/150 complete | Loss: 2.5302  [policy: 2.9749  value: 0.7515] | LR: 0.00010000 | Time: 4m45s
+  Epoch 4/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.4068  [policy: 2.8223  value: 0.7451] | Elapsed: 14s
+  Epoch 4/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.3932  [policy: 2.8057  value: 0.7432] | Elapsed: 27s
+  Epoch 4/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.3808  [policy: 2.7907  value: 0.7414] | Elapsed: 40s
+  Epoch 4/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.3692  [policy: 2.7765  value: 0.7402] | Elapsed: 53s
+Epoch 4/150 complete | Loss: 2.3590  [policy: 2.7638  value: 0.7395] | LR: 0.00010000 | Time: 1m5s
+  Epoch 5/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.2744  [policy: 2.6590  value: 0.7363] | Elapsed: 13s
+  Epoch 5/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.2668  [policy: 2.6495  value: 0.7360] | Elapsed: 27s
+  Epoch 5/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.2606  [policy: 2.6419  value: 0.7356] | Elapsed: 40s
+  Epoch 5/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.2542  [policy: 2.6339  value: 0.7352] | Elapsed: 53s
+Epoch 5/150 complete | Loss: 2.2483  [policy: 2.6267  value: 0.7347] | LR: 0.00010000 | Time: 1m4s
+  Epoch 6/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.1890  [policy: 2.5536  value: 0.7304] | Elapsed: 14s
+  Epoch 6/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.1846  [policy: 2.5482  value: 0.7304] | Elapsed: 27s
+  Epoch 6/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.1806  [policy: 2.5430  value: 0.7308] | Elapsed: 40s
+  Epoch 6/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.1764  [policy: 2.5380  value: 0.7302] | Elapsed: 53s
+Epoch 6/150 complete | Loss: 2.1724  [policy: 2.5330  value: 0.7302] | LR: 0.00010000 | Time: 1m5s
+  Epoch 7/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.1286  [policy: 2.4793  value: 0.7259] | Elapsed: 14s
+  Epoch 7/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.1259  [policy: 2.4756  value: 0.7271] | Elapsed: 27s
+  Epoch 7/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.1225  [policy: 2.4713  value: 0.7273] | Elapsed: 40s
+  Epoch 7/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.1188  [policy: 2.4668  value: 0.7270] | Elapsed: 53s
+Epoch 7/150 complete | Loss: 2.1165  [policy: 2.4640  value: 0.7267] | LR: 0.00010000 | Time: 1m5s
+  Epoch 8/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.0741  [policy: 2.4111  value: 0.7261] | Elapsed: 14s
+  Epoch 8/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.0756  [policy: 2.4132  value: 0.7252] | Elapsed: 27s
+  Epoch 8/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.0746  [policy: 2.4120  value: 0.7251] | Elapsed: 40s
+  Epoch 8/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.0736  [policy: 2.4106  value: 0.7255] | Elapsed: 53s
+Epoch 8/150 complete | Loss: 2.0722  [policy: 2.4088  value: 0.7255] | LR: 0.00010000 | Time: 1m5s
+  Epoch 9/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.0382  [policy: 2.3666  value: 0.7244] | Elapsed: 14s
+  Epoch 9/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.0390  [policy: 2.3677  value: 0.7241] | Elapsed: 27s
+  Epoch 9/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.0382  [policy: 2.3668  value: 0.7240] | Elapsed: 40s
+  Epoch 9/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.0374  [policy: 2.3658  value: 0.7237] | Elapsed: 53s
+Epoch 9/150 complete | Loss: 2.0369  [policy: 2.3652  value: 0.7237] | LR: 0.00010000 | Time: 1m5s
+  Epoch 10/150 | Batch 1,000/4,883 (20.5%) | Loss: 2.0056  [policy: 2.3265  value: 0.7221] | Elapsed: 14s
+  Epoch 10/150 | Batch 2,000/4,883 (41.0%) | Loss: 2.0069  [policy: 2.3281  value: 0.7220] | Elapsed: 27s
+  Epoch 10/150 | Batch 3,000/4,883 (61.4%) | Loss: 2.0073  [policy: 2.3285  value: 0.7222] | Elapsed: 40s
+  Epoch 10/150 | Batch 4,000/4,883 (81.9%) | Loss: 2.0072  [policy: 2.3284  value: 0.7223] | Elapsed: 53s
+Epoch 10/150 complete | Loss: 2.0072  [policy: 2.3285  value: 0.7220] | LR: 0.00010000 | Time: 1m5s
+  Epoch 11/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.9762  [policy: 2.2902  value: 0.7199] | Elapsed: 14s
+  Epoch 11/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.9777  [policy: 2.2920  value: 0.7204] | Elapsed: 27s
+  Epoch 11/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.9799  [policy: 2.2948  value: 0.7203] | Elapsed: 40s
+  Epoch 11/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.9810  [policy: 2.2961  value: 0.7208] | Elapsed: 53s
+Epoch 11/150 complete | Loss: 1.9810  [policy: 2.2960  value: 0.7208] | LR: 0.00010000 | Time: 1m5s
+  Epoch 12/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.9521  [policy: 2.2599  value: 0.7206] | Elapsed: 14s
+  Epoch 12/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.9560  [policy: 2.2652  value: 0.7195] | Elapsed: 27s
+  Epoch 12/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.9571  [policy: 2.2664  value: 0.7195] | Elapsed: 40s
+  Epoch 12/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.9584  [policy: 2.2682  value: 0.7194] | Elapsed: 53s
+Epoch 12/150 complete | Loss: 1.9584  [policy: 2.2682  value: 0.7192] | LR: 0.00010000 | Time: 1m5s
+  Epoch 13/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.9316  [policy: 2.2349  value: 0.7184] | Elapsed: 14s
+  Epoch 13/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.9343  [policy: 2.2383  value: 0.7184] | Elapsed: 27s
+  Epoch 13/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.9368  [policy: 2.2414  value: 0.7187] | Elapsed: 40s
+  Epoch 13/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.9381  [policy: 2.2429  value: 0.7186] | Elapsed: 54s
+Epoch 13/150 complete | Loss: 1.9388  [policy: 2.2439  value: 0.7185] | LR: 0.00010000 | Time: 1m6s
+  Epoch 14/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.9119  [policy: 2.2102  value: 0.7190] | Elapsed: 14s
+  Epoch 14/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.9163  [policy: 2.2159  value: 0.7178] | Elapsed: 27s
+  Epoch 14/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.9189  [policy: 2.2193  value: 0.7172] | Elapsed: 41s
+  Epoch 14/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.9202  [policy: 2.2209  value: 0.7174] | Elapsed: 54s
+Epoch 14/150 complete | Loss: 1.9211  [policy: 2.2221  value: 0.7172] | LR: 0.00010000 | Time: 1m6s
+  Epoch 15/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.8966  [policy: 2.1920  value: 0.7149] | Elapsed: 14s
+  Epoch 15/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.8999  [policy: 2.1961  value: 0.7149] | Elapsed: 27s
+  Epoch 15/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.9018  [policy: 2.1984  value: 0.7155] | Elapsed: 40s
+  Epoch 15/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.9035  [policy: 2.2005  value: 0.7156] | Elapsed: 54s
+Epoch 15/150 complete | Loss: 1.9046  [policy: 2.2019  value: 0.7156] | LR: 0.00010000 | Time: 1m6s
+  Epoch 16/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.8811  [policy: 2.1727  value: 0.7146] | Elapsed: 14s
+  Epoch 16/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.8836  [policy: 2.1759  value: 0.7143] | Elapsed: 27s
+  Epoch 16/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.8872  [policy: 2.1803  value: 0.7146] | Elapsed: 40s
+  Epoch 16/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.8889  [policy: 2.1826  value: 0.7144] | Elapsed: 54s
+Epoch 16/150 complete | Loss: 1.8901  [policy: 2.1840  value: 0.7144] | LR: 0.00010000 | Time: 1m6s
+  Epoch 17/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.8666  [policy: 2.1545  value: 0.7148] | Elapsed: 14s
+  Epoch 17/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.8705  [policy: 2.1595  value: 0.7141] | Elapsed: 27s
+  Epoch 17/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.8734  [policy: 2.1632  value: 0.7139] | Elapsed: 40s
+  Epoch 17/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.8752  [policy: 2.1656  value: 0.7140] | Elapsed: 54s
+Epoch 17/150 complete | Loss: 1.8766  [policy: 2.1673  value: 0.7140] | LR: 0.00010000 | Time: 1m6s
+  Epoch 18/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.8543  [policy: 2.1399  value: 0.7119] | Elapsed: 14s
+  Epoch 18/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.8586  [policy: 2.1452  value: 0.7123] | Elapsed: 27s
+  Epoch 18/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.8612  [policy: 2.1485  value: 0.7123] | Elapsed: 41s
+  Epoch 18/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.8629  [policy: 2.1504  value: 0.7129] | Elapsed: 54s
+Epoch 18/150 complete | Loss: 1.8645  [policy: 2.1524  value: 0.7127] | LR: 0.00010000 | Time: 1m6s
+  Epoch 19/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.8409  [policy: 2.1232  value: 0.7117] | Elapsed: 14s
+  Epoch 19/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.8471  [policy: 2.1310  value: 0.7116] | Elapsed: 27s
+  Epoch 19/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.8490  [policy: 2.1334  value: 0.7117] | Elapsed: 40s
+  Epoch 19/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.8516  [policy: 2.1365  value: 0.7120] | Elapsed: 54s
+Epoch 19/150 complete | Loss: 1.8530  [policy: 2.1383  value: 0.7120] | LR: 0.00010000 | Time: 1m6s
+  Epoch 20/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.8301  [policy: 2.1101  value: 0.7104] | Elapsed: 14s
+  Epoch 20/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.8353  [policy: 2.1164  value: 0.7108] | Elapsed: 27s
+  Epoch 20/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.8384  [policy: 2.1204  value: 0.7107] | Elapsed: 40s
+  Epoch 20/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.8407  [policy: 2.1231  value: 0.7109] | Elapsed: 54s
+Epoch 20/150 complete | Loss: 1.8427  [policy: 2.1256  value: 0.7108] | LR: 0.00005000 | Time: 1m5s
+  Epoch 21/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7949  [policy: 2.0668  value: 0.7071] | Elapsed: 14s
+  Epoch 21/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7962  [policy: 2.0685  value: 0.7066] | Elapsed: 27s
+  Epoch 21/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7967  [policy: 2.0691  value: 0.7068] | Elapsed: 40s
+  Epoch 21/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7981  [policy: 2.0708  value: 0.7069] | Elapsed: 54s
+Epoch 21/150 complete | Loss: 1.7989  [policy: 2.0719  value: 0.7067] | LR: 0.00005000 | Time: 1m6s
+  Epoch 22/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7836  [policy: 2.0530  value: 0.7060] | Elapsed: 14s
+  Epoch 22/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7860  [policy: 2.0560  value: 0.7061] | Elapsed: 27s
+  Epoch 22/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7876  [policy: 2.0579  value: 0.7062] | Elapsed: 40s
+  Epoch 22/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7900  [policy: 2.0609  value: 0.7061] | Elapsed: 54s
+Epoch 22/150 complete | Loss: 1.7913  [policy: 2.0626  value: 0.7061] | LR: 0.00005000 | Time: 1m5s
+  Epoch 23/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7791  [policy: 2.0479  value: 0.7042] | Elapsed: 14s
+  Epoch 23/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7816  [policy: 2.0507  value: 0.7050] | Elapsed: 27s
+  Epoch 23/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7837  [policy: 2.0533  value: 0.7052] | Elapsed: 40s
+  Epoch 23/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7850  [policy: 2.0549  value: 0.7055] | Elapsed: 53s
+Epoch 23/150 complete | Loss: 1.7861  [policy: 2.0563  value: 0.7056] | LR: 0.00005000 | Time: 1m5s
+  Epoch 24/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7724  [policy: 2.0391  value: 0.7054] | Elapsed: 14s
+  Epoch 24/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7764  [policy: 2.0443  value: 0.7048] | Elapsed: 27s
+  Epoch 24/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7782  [policy: 2.0465  value: 0.7049] | Elapsed: 40s
+  Epoch 24/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7801  [policy: 2.0488  value: 0.7050] | Elapsed: 54s
+Epoch 24/150 complete | Loss: 1.7813  [policy: 2.0503  value: 0.7052] | LR: 0.00005000 | Time: 1m5s
+  Epoch 25/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7684  [policy: 2.0344  value: 0.7044] | Elapsed: 14s
+  Epoch 25/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7705  [policy: 2.0370  value: 0.7044] | Elapsed: 27s
+  Epoch 25/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7730  [policy: 2.0402  value: 0.7044] | Elapsed: 40s
+  Epoch 25/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7753  [policy: 2.0431  value: 0.7044] | Elapsed: 54s
+Epoch 25/150 complete | Loss: 1.7767  [policy: 2.0447  value: 0.7047] | LR: 0.00005000 | Time: 1m6s
+  Epoch 26/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7656  [policy: 2.0310  value: 0.7041] | Elapsed: 14s
+  Epoch 26/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7678  [policy: 2.0338  value: 0.7038] | Elapsed: 27s
+  Epoch 26/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7693  [policy: 2.0356  value: 0.7041] | Elapsed: 41s
+  Epoch 26/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7708  [policy: 2.0374  value: 0.7041] | Elapsed: 54s
+Epoch 26/150 complete | Loss: 1.7723  [policy: 2.0393  value: 0.7043] | LR: 0.00005000 | Time: 1m6s
+  Epoch 27/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7596  [policy: 2.0236  value: 0.7036] | Elapsed: 14s
+  Epoch 27/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7624  [policy: 2.0272  value: 0.7033] | Elapsed: 27s
+  Epoch 27/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7653  [policy: 2.0307  value: 0.7036] | Elapsed: 41s
+  Epoch 27/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7664  [policy: 2.0320  value: 0.7038] | Elapsed: 54s
+Epoch 27/150 complete | Loss: 1.7682  [policy: 2.0342  value: 0.7039] | LR: 0.00005000 | Time: 1m6s
+  Epoch 28/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7550  [policy: 2.0178  value: 0.7036] | Elapsed: 14s
+  Epoch 28/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7582  [policy: 2.0220  value: 0.7033] | Elapsed: 27s
+  Epoch 28/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7610  [policy: 2.0254  value: 0.7034] | Elapsed: 40s
+  Epoch 28/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7629  [policy: 2.0277  value: 0.7034] | Elapsed: 54s
+Epoch 28/150 complete | Loss: 1.7640  [policy: 2.0291  value: 0.7035] | LR: 0.00005000 | Time: 1m5s
+  Epoch 29/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7530  [policy: 2.0153  value: 0.7037] | Elapsed: 14s
+  Epoch 29/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7553  [policy: 2.0183  value: 0.7033] | Elapsed: 27s
+  Epoch 29/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7568  [policy: 2.0202  value: 0.7032] | Elapsed: 40s
+  Epoch 29/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7583  [policy: 2.0221  value: 0.7033] | Elapsed: 53s
+Epoch 29/150 complete | Loss: 1.7602  [policy: 2.0244  value: 0.7032] | LR: 0.00005000 | Time: 1m5s
+  Epoch 30/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7460  [policy: 2.0070  value: 0.7021] | Elapsed: 14s
+  Epoch 30/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7496  [policy: 2.0114  value: 0.7024] | Elapsed: 27s
+  Epoch 30/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7529  [policy: 2.0155  value: 0.7024] | Elapsed: 40s
+  Epoch 30/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7551  [policy: 2.0182  value: 0.7025] | Elapsed: 53s
+Epoch 30/150 complete | Loss: 1.7564  [policy: 2.0199  value: 0.7026] | LR: 0.00005000 | Time: 1m5s
+  Epoch 31/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7419  [policy: 2.0019  value: 0.7019] | Elapsed: 14s
+  Epoch 31/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7460  [policy: 2.0068  value: 0.7024] | Elapsed: 27s
+  Epoch 31/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7490  [policy: 2.0107  value: 0.7025] | Elapsed: 40s
+  Epoch 31/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7515  [policy: 2.0138  value: 0.7025] | Elapsed: 54s
+Epoch 31/150 complete | Loss: 1.7529  [policy: 2.0155  value: 0.7022] | LR: 0.00005000 | Time: 1m5s
+  Epoch 32/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7401  [policy: 1.9999  value: 0.7008] | Elapsed: 14s
+  Epoch 32/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7434  [policy: 2.0039  value: 0.7014] | Elapsed: 27s
+  Epoch 32/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7455  [policy: 2.0065  value: 0.7019] | Elapsed: 40s
+  Epoch 32/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7474  [policy: 2.0088  value: 0.7020] | Elapsed: 53s
+Epoch 32/150 complete | Loss: 1.7493  [policy: 2.0111  value: 0.7019] | LR: 0.00005000 | Time: 1m5s
+  Epoch 33/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7380  [policy: 1.9970  value: 0.7020] | Elapsed: 13s
+  Epoch 33/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7406  [policy: 2.0004  value: 0.7013] | Elapsed: 27s
+  Epoch 33/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7431  [policy: 2.0035  value: 0.7014] | Elapsed: 40s
+  Epoch 33/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7448  [policy: 2.0057  value: 0.7014] | Elapsed: 53s
+Epoch 33/150 complete | Loss: 1.7461  [policy: 2.0072  value: 0.7014] | LR: 0.00005000 | Time: 1m5s
+  Epoch 34/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7341  [policy: 1.9926  value: 0.7001] | Elapsed: 14s
+  Epoch 34/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7364  [policy: 1.9954  value: 0.7004] | Elapsed: 27s
+  Epoch 34/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7384  [policy: 1.9978  value: 0.7007] | Elapsed: 40s
+  Epoch 34/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7409  [policy: 2.0010  value: 0.7008] | Elapsed: 54s
+Epoch 34/150 complete | Loss: 1.7426  [policy: 2.0031  value: 0.7009] | LR: 0.00005000 | Time: 1m5s
+  Epoch 35/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7287  [policy: 1.9858  value: 0.7005] | Elapsed: 14s
+  Epoch 35/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7324  [policy: 1.9903  value: 0.7010] | Elapsed: 27s
+  Epoch 35/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7353  [policy: 1.9940  value: 0.7008] | Elapsed: 40s
+  Epoch 35/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7380  [policy: 1.9974  value: 0.7006] | Elapsed: 54s
+Epoch 35/150 complete | Loss: 1.7396  [policy: 1.9994  value: 0.7006] | LR: 0.00005000 | Time: 1m6s
+  Epoch 36/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7264  [policy: 1.9832  value: 0.6991] | Elapsed: 14s
+  Epoch 36/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7303  [policy: 1.9879  value: 0.6999] | Elapsed: 27s
+  Epoch 36/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7329  [policy: 1.9912  value: 0.6997] | Elapsed: 40s
+  Epoch 36/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7350  [policy: 1.9937  value: 0.7001] | Elapsed: 53s
+Epoch 36/150 complete | Loss: 1.7366  [policy: 1.9957  value: 0.7001] | LR: 0.00005000 | Time: 1m5s
+  Epoch 37/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7268  [policy: 1.9840  value: 0.6983] | Elapsed: 14s
+  Epoch 37/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7291  [policy: 1.9866  value: 0.6991] | Elapsed: 27s
+  Epoch 37/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7301  [policy: 1.9879  value: 0.6992] | Elapsed: 40s
+  Epoch 37/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7323  [policy: 1.9905  value: 0.6994] | Elapsed: 54s
+Epoch 37/150 complete | Loss: 1.7335  [policy: 1.9920  value: 0.6996] | LR: 0.00005000 | Time: 1m5s
+  Epoch 38/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7213  [policy: 1.9770  value: 0.6988] | Elapsed: 14s
+  Epoch 38/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7250  [policy: 1.9813  value: 0.6997] | Elapsed: 27s
+  Epoch 38/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7273  [policy: 1.9843  value: 0.6994] | Elapsed: 40s
+  Epoch 38/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7292  [policy: 1.9866  value: 0.6994] | Elapsed: 54s
+Epoch 38/150 complete | Loss: 1.7308  [policy: 1.9886  value: 0.6994] | LR: 0.00005000 | Time: 1m5s
+  Epoch 39/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7186  [policy: 1.9734  value: 0.6995] | Elapsed: 14s
+  Epoch 39/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7225  [policy: 1.9784  value: 0.6987] | Elapsed: 27s
+  Epoch 39/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7247  [policy: 1.9812  value: 0.6987] | Elapsed: 40s
+  Epoch 39/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7264  [policy: 1.9833  value: 0.6988] | Elapsed: 53s
+Epoch 39/150 complete | Loss: 1.7280  [policy: 1.9853  value: 0.6988] | LR: 0.00005000 | Time: 1m5s
+  Epoch 40/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.7170  [policy: 1.9716  value: 0.6982] | Elapsed: 14s
+  Epoch 40/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.7183  [policy: 1.9734  value: 0.6979] | Elapsed: 27s
+  Epoch 40/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7211  [policy: 1.9768  value: 0.6983] | Elapsed: 40s
+  Epoch 40/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7233  [policy: 1.9795  value: 0.6986] | Elapsed: 54s
+Epoch 40/150 complete | Loss: 1.7250  [policy: 1.9816  value: 0.6987] | LR: 0.00002500 | Time: 1m5s
+  Epoch 41/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6982  [policy: 1.9487  value: 0.6960] | Elapsed: 14s
+  Epoch 41/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6988  [policy: 1.9496  value: 0.6959] | Elapsed: 27s
+  Epoch 41/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.7002  [policy: 1.9513  value: 0.6961] | Elapsed: 40s
+  Epoch 41/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.7018  [policy: 1.9532  value: 0.6962] | Elapsed: 54s
+Epoch 41/150 complete | Loss: 1.7027  [policy: 1.9543  value: 0.6963] | LR: 0.00002500 | Time: 1m5s
+  Epoch 42/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6958  [policy: 1.9455  value: 0.6967] | Elapsed: 14s
+  Epoch 42/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6971  [policy: 1.9472  value: 0.6967] | Elapsed: 27s
+  Epoch 42/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6980  [policy: 1.9485  value: 0.6963] | Elapsed: 40s
+  Epoch 42/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6991  [policy: 1.9499  value: 0.6962] | Elapsed: 54s
+Epoch 42/150 complete | Loss: 1.7001  [policy: 1.9511  value: 0.6961] | LR: 0.00002500 | Time: 1m5s
+  Epoch 43/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6914  [policy: 1.9402  value: 0.6960] | Elapsed: 14s
+  Epoch 43/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6939  [policy: 1.9434  value: 0.6961] | Elapsed: 27s
+  Epoch 43/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6952  [policy: 1.9450  value: 0.6961] | Elapsed: 41s
+  Epoch 43/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6969  [policy: 1.9471  value: 0.6960] | Elapsed: 54s
+Epoch 43/150 complete | Loss: 1.6984  [policy: 1.9490  value: 0.6959] | LR: 0.00002500 | Time: 1m6s
+  Epoch 44/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6909  [policy: 1.9397  value: 0.6958] | Elapsed: 14s
+  Epoch 44/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6932  [policy: 1.9424  value: 0.6963] | Elapsed: 27s
+  Epoch 44/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6942  [policy: 1.9437  value: 0.6961] | Elapsed: 40s
+  Epoch 44/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6956  [policy: 1.9455  value: 0.6959] | Elapsed: 54s
+Epoch 44/150 complete | Loss: 1.6968  [policy: 1.9471  value: 0.6959] | LR: 0.00002500 | Time: 1m5s
+  Epoch 45/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6908  [policy: 1.9394  value: 0.6964] | Elapsed: 14s
+  Epoch 45/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6922  [policy: 1.9413  value: 0.6958] | Elapsed: 27s
+  Epoch 45/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6939  [policy: 1.9434  value: 0.6958] | Elapsed: 40s
+  Epoch 45/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6948  [policy: 1.9446  value: 0.6957] | Elapsed: 54s
+Epoch 45/150 complete | Loss: 1.6955  [policy: 1.9455  value: 0.6956] | LR: 0.00002500 | Time: 1m5s
+  Epoch 46/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6872  [policy: 1.9354  value: 0.6941] | Elapsed: 14s
+  Epoch 46/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6891  [policy: 1.9377  value: 0.6950] | Elapsed: 27s
+  Epoch 46/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6910  [policy: 1.9399  value: 0.6955] | Elapsed: 40s
+  Epoch 46/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6925  [policy: 1.9418  value: 0.6957] | Elapsed: 53s
+Epoch 46/150 complete | Loss: 1.6941  [policy: 1.9438  value: 0.6954] | LR: 0.00002500 | Time: 1m5s
+  Epoch 47/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6881  [policy: 1.9364  value: 0.6952] | Elapsed: 14s
+  Epoch 47/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6893  [policy: 1.9379  value: 0.6951] | Elapsed: 27s
+  Epoch 47/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6902  [policy: 1.9389  value: 0.6954] | Elapsed: 40s
+  Epoch 47/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6916  [policy: 1.9407  value: 0.6954] | Elapsed: 54s
+Epoch 47/150 complete | Loss: 1.6926  [policy: 1.9420  value: 0.6952] | LR: 0.00002500 | Time: 1m5s
+  Epoch 48/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6861  [policy: 1.9340  value: 0.6944] | Elapsed: 14s
+  Epoch 48/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6877  [policy: 1.9360  value: 0.6946] | Elapsed: 27s
+  Epoch 48/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6883  [policy: 1.9367  value: 0.6948] | Elapsed: 40s
+  Epoch 48/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6901  [policy: 1.9390  value: 0.6949] | Elapsed: 54s
+Epoch 48/150 complete | Loss: 1.6914  [policy: 1.9405  value: 0.6950] | LR: 0.00002500 | Time: 1m5s
+  Epoch 49/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6849  [policy: 1.9324  value: 0.6948] | Elapsed: 14s
+  Epoch 49/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6865  [policy: 1.9343  value: 0.6951] | Elapsed: 27s
+  Epoch 49/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6880  [policy: 1.9362  value: 0.6951] | Elapsed: 40s
+  Epoch 49/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6890  [policy: 1.9375  value: 0.6951] | Elapsed: 53s
+Epoch 49/150 complete | Loss: 1.6900  [policy: 1.9387  value: 0.6950] | LR: 0.00002500 | Time: 1m5s
+  Epoch 50/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6832  [policy: 1.9303  value: 0.6947] | Elapsed: 14s
+  Epoch 50/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6842  [policy: 1.9316  value: 0.6943] | Elapsed: 27s
+  Epoch 50/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6859  [policy: 1.9338  value: 0.6945] | Elapsed: 40s
+  Epoch 50/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6882  [policy: 1.9365  value: 0.6948] | Elapsed: 54s
+Epoch 50/150 complete | Loss: 1.6888  [policy: 1.9373  value: 0.6948] | LR: 0.00002500 | Time: 1m5s
+  Epoch 51/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6810  [policy: 1.9277  value: 0.6946] | Elapsed: 14s
+  Epoch 51/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6835  [policy: 1.9308  value: 0.6946] | Elapsed: 27s
+  Epoch 51/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6847  [policy: 1.9321  value: 0.6948] | Elapsed: 40s
+  Epoch 51/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6864  [policy: 1.9343  value: 0.6948] | Elapsed: 54s
+Epoch 51/150 complete | Loss: 1.6875  [policy: 1.9357  value: 0.6947] | LR: 0.00002500 | Time: 1m5s
+  Epoch 52/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6802  [policy: 1.9265  value: 0.6951] | Elapsed: 14s
+  Epoch 52/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6810  [policy: 1.9277  value: 0.6944] | Elapsed: 27s
+  Epoch 52/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6830  [policy: 1.9301  value: 0.6945] | Elapsed: 40s
+  Epoch 52/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6850  [policy: 1.9326  value: 0.6945] | Elapsed: 53s
+Epoch 52/150 complete | Loss: 1.6863  [policy: 1.9342  value: 0.6944] | LR: 0.00002500 | Time: 1m5s
+  Epoch 53/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6794  [policy: 1.9258  value: 0.6937] | Elapsed: 14s
+  Epoch 53/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6807  [policy: 1.9274  value: 0.6939] | Elapsed: 27s
+  Epoch 53/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6825  [policy: 1.9297  value: 0.6940] | Elapsed: 40s
+  Epoch 53/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6839  [policy: 1.9313  value: 0.6941] | Elapsed: 54s
+Epoch 53/150 complete | Loss: 1.6850  [policy: 1.9327  value: 0.6943] | LR: 0.00002500 | Time: 1m5s
+  Epoch 54/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6781  [policy: 1.9240  value: 0.6944] | Elapsed: 14s
+  Epoch 54/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6801  [policy: 1.9266  value: 0.6938] | Elapsed: 27s
+  Epoch 54/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6815  [policy: 1.9283  value: 0.6941] | Elapsed: 40s
+  Epoch 54/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6827  [policy: 1.9299  value: 0.6940] | Elapsed: 53s
+Epoch 54/150 complete | Loss: 1.6838  [policy: 1.9311  value: 0.6942] | LR: 0.00002500 | Time: 1m5s
+  Epoch 55/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6762  [policy: 1.9218  value: 0.6939] | Elapsed: 14s
+  Epoch 55/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6779  [policy: 1.9238  value: 0.6940] | Elapsed: 27s
+  Epoch 55/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6801  [policy: 1.9267  value: 0.6939] | Elapsed: 40s
+  Epoch 55/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6814  [policy: 1.9282  value: 0.6941] | Elapsed: 54s
+Epoch 55/150 complete | Loss: 1.6827  [policy: 1.9298  value: 0.6941] | LR: 0.00002500 | Time: 1m5s
+  Epoch 56/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6758  [policy: 1.9215  value: 0.6933] | Elapsed: 14s
+  Epoch 56/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6775  [policy: 1.9234  value: 0.6939] | Elapsed: 27s
+  Epoch 56/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6793  [policy: 1.9256  value: 0.6940] | Elapsed: 40s
+  Epoch 56/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6803  [policy: 1.9270  value: 0.6938] | Elapsed: 54s
+Epoch 56/150 complete | Loss: 1.6815  [policy: 1.9284  value: 0.6939] | LR: 0.00002500 | Time: 1m5s
+  Epoch 57/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6741  [policy: 1.9193  value: 0.6937] | Elapsed: 14s
+  Epoch 57/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6766  [policy: 1.9222  value: 0.6941] | Elapsed: 27s
+  Epoch 57/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6784  [policy: 1.9246  value: 0.6937] | Elapsed: 40s
+  Epoch 57/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6792  [policy: 1.9256  value: 0.6936] | Elapsed: 53s
+Epoch 57/150 complete | Loss: 1.6804  [policy: 1.9271  value: 0.6936] | LR: 0.00002500 | Time: 1m5s
+  Epoch 58/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6739  [policy: 1.9191  value: 0.6931] | Elapsed: 14s
+  Epoch 58/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6748  [policy: 1.9201  value: 0.6933] | Elapsed: 27s
+  Epoch 58/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6765  [policy: 1.9222  value: 0.6933] | Elapsed: 40s
+  Epoch 58/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6786  [policy: 1.9248  value: 0.6936] | Elapsed: 54s
+Epoch 58/150 complete | Loss: 1.6792  [policy: 1.9256  value: 0.6937] | LR: 0.00002500 | Time: 1m5s
+  Epoch 59/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6702  [policy: 1.9143  value: 0.6936] | Elapsed: 14s
+  Epoch 59/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6741  [policy: 1.9192  value: 0.6936] | Elapsed: 27s
+  Epoch 59/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6759  [policy: 1.9215  value: 0.6936] | Elapsed: 40s
+  Epoch 59/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6773  [policy: 1.9233  value: 0.6934] | Elapsed: 54s
+Epoch 59/150 complete | Loss: 1.6781  [policy: 1.9243  value: 0.6935] | LR: 0.00002500 | Time: 1m5s
+  Epoch 60/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6709  [policy: 1.9153  value: 0.6936] | Elapsed: 14s
+  Epoch 60/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6723  [policy: 1.9170  value: 0.6934] | Elapsed: 27s
+  Epoch 60/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6744  [policy: 1.9198  value: 0.6931] | Elapsed: 40s
+  Epoch 60/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6760  [policy: 1.9217  value: 0.6932] | Elapsed: 54s
+Epoch 60/150 complete | Loss: 1.6770  [policy: 1.9229  value: 0.6933] | LR: 0.00001250 | Time: 1m5s
+  Epoch 61/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6634  [policy: 1.9061  value: 0.6924] | Elapsed: 14s
+  Epoch 61/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6634  [policy: 1.9063  value: 0.6921] | Elapsed: 27s
+  Epoch 61/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6639  [policy: 1.9069  value: 0.6921] | Elapsed: 40s
+  Epoch 61/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6644  [policy: 1.9075  value: 0.6920] | Elapsed: 54s
+Epoch 61/150 complete | Loss: 1.6649  [policy: 1.9080  value: 0.6921] | LR: 0.00001250 | Time: 1m5s
+  Epoch 62/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6598  [policy: 1.9018  value: 0.6918] | Elapsed: 14s
+  Epoch 62/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6608  [policy: 1.9029  value: 0.6921] | Elapsed: 27s
+  Epoch 62/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6619  [policy: 1.9043  value: 0.6921] | Elapsed: 40s
+  Epoch 62/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6632  [policy: 1.9059  value: 0.6920] | Elapsed: 53s
+Epoch 62/150 complete | Loss: 1.6638  [policy: 1.9067  value: 0.6921] | LR: 0.00001250 | Time: 1m5s
+  Epoch 63/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6598  [policy: 1.9017  value: 0.6921] | Elapsed: 14s
+  Epoch 63/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6606  [policy: 1.9027  value: 0.6919] | Elapsed: 27s
+  Epoch 63/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6618  [policy: 1.9042  value: 0.6921] | Elapsed: 40s
+  Epoch 63/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6621  [policy: 1.9046  value: 0.6920] | Elapsed: 53s
+Epoch 63/150 complete | Loss: 1.6632  [policy: 1.9059  value: 0.6920] | LR: 0.00001250 | Time: 1m5s
+  Epoch 64/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6592  [policy: 1.9013  value: 0.6909] | Elapsed: 14s
+  Epoch 64/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6598  [policy: 1.9017  value: 0.6919] | Elapsed: 27s
+  Epoch 64/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6612  [policy: 1.9036  value: 0.6917] | Elapsed: 40s
+  Epoch 64/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6617  [policy: 1.9041  value: 0.6919] | Elapsed: 54s
+Epoch 64/150 complete | Loss: 1.6625  [policy: 1.9052  value: 0.6920] | LR: 0.00001250 | Time: 1m5s
+  Epoch 65/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6577  [policy: 1.8993  value: 0.6913] | Elapsed: 14s
+  Epoch 65/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6603  [policy: 1.9025  value: 0.6916] | Elapsed: 27s
+  Epoch 65/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6604  [policy: 1.9026  value: 0.6918] | Elapsed: 40s
+  Epoch 65/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6610  [policy: 1.9034  value: 0.6917] | Elapsed: 53s
+Epoch 65/150 complete | Loss: 1.6619  [policy: 1.9044  value: 0.6919] | LR: 0.00001250 | Time: 1m5s
+  Epoch 66/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6566  [policy: 1.8978  value: 0.6919] | Elapsed: 14s
+  Epoch 66/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6592  [policy: 1.9011  value: 0.6918] | Elapsed: 27s
+  Epoch 66/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6599  [policy: 1.9020  value: 0.6918] | Elapsed: 40s
+  Epoch 66/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6608  [policy: 1.9030  value: 0.6919] | Elapsed: 54s
+Epoch 66/150 complete | Loss: 1.6613  [policy: 1.9036  value: 0.6918] | LR: 0.00001250 | Time: 1m5s
+  Epoch 67/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6579  [policy: 1.8995  value: 0.6916] | Elapsed: 14s
+  Epoch 67/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6592  [policy: 1.9011  value: 0.6915] | Elapsed: 27s
+  Epoch 67/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6600  [policy: 1.9022  value: 0.6914] | Elapsed: 40s
+  Epoch 67/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6602  [policy: 1.9024  value: 0.6917] | Elapsed: 53s
+Epoch 67/150 complete | Loss: 1.6607  [policy: 1.9030  value: 0.6917] | LR: 0.00001250 | Time: 1m5s
+  Epoch 68/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6574  [policy: 1.8990  value: 0.6911] | Elapsed: 14s
+  Epoch 68/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6585  [policy: 1.9003  value: 0.6913] | Elapsed: 27s
+  Epoch 68/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6592  [policy: 1.9011  value: 0.6917] | Elapsed: 40s
+  Epoch 68/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6594  [policy: 1.9014  value: 0.6916] | Elapsed: 54s
+Epoch 68/150 complete | Loss: 1.6601  [policy: 1.9023  value: 0.6916] | LR: 0.00001250 | Time: 1m5s
+  Epoch 69/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6542  [policy: 1.8949  value: 0.6914] | Elapsed: 14s
+  Epoch 69/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6566  [policy: 1.8979  value: 0.6916] | Elapsed: 27s
+  Epoch 69/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6573  [policy: 1.8987  value: 0.6918] | Elapsed: 40s
+  Epoch 69/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6586  [policy: 1.9004  value: 0.6917] | Elapsed: 54s
+Epoch 69/150 complete | Loss: 1.6596  [policy: 1.9016  value: 0.6916] | LR: 0.00001250 | Time: 1m5s
+  Epoch 70/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6538  [policy: 1.8943  value: 0.6916] | Elapsed: 14s
+  Epoch 70/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6552  [policy: 1.8961  value: 0.6914] | Elapsed: 27s
+  Epoch 70/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6576  [policy: 1.8990  value: 0.6917] | Elapsed: 40s
+  Epoch 70/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6582  [policy: 1.8999  value: 0.6915] | Elapsed: 53s
+Epoch 70/150 complete | Loss: 1.6590  [policy: 1.9009  value: 0.6915] | LR: 0.00001250 | Time: 1m5s
+  Epoch 71/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6543  [policy: 1.8952  value: 0.6910] | Elapsed: 14s
+  Epoch 71/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6558  [policy: 1.8969  value: 0.6914] | Elapsed: 27s
+  Epoch 71/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6566  [policy: 1.8980  value: 0.6914] | Elapsed: 40s
+  Epoch 71/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6579  [policy: 1.8996  value: 0.6914] | Elapsed: 53s
+Epoch 71/150 complete | Loss: 1.6585  [policy: 1.9002  value: 0.6915] | LR: 0.00001250 | Time: 1m5s
+  Epoch 72/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6539  [policy: 1.8944  value: 0.6917] | Elapsed: 14s
+  Epoch 72/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6552  [policy: 1.8961  value: 0.6912] | Elapsed: 27s
+  Epoch 72/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6566  [policy: 1.8980  value: 0.6911] | Elapsed: 40s
+  Epoch 72/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6574  [policy: 1.8989  value: 0.6913] | Elapsed: 53s
+Epoch 72/150 complete | Loss: 1.6580  [policy: 1.8996  value: 0.6914] | LR: 0.00001250 | Time: 1m5s
+  Epoch 73/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6545  [policy: 1.8954  value: 0.6907] | Elapsed: 14s
+  Epoch 73/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6547  [policy: 1.8956  value: 0.6909] | Elapsed: 27s
+  Epoch 73/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6556  [policy: 1.8968  value: 0.6912] | Elapsed: 40s
+  Epoch 73/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6567  [policy: 1.8980  value: 0.6914] | Elapsed: 54s
+Epoch 73/150 complete | Loss: 1.6574  [policy: 1.8989  value: 0.6913] | LR: 0.00001250 | Time: 1m5s
+  Epoch 74/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6532  [policy: 1.8938  value: 0.6905] | Elapsed: 14s
+  Epoch 74/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6539  [policy: 1.8948  value: 0.6905] | Elapsed: 27s
+  Epoch 74/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6550  [policy: 1.8961  value: 0.6905] | Elapsed: 40s
+  Epoch 74/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6559  [policy: 1.8972  value: 0.6910] | Elapsed: 54s
+Epoch 74/150 complete | Loss: 1.6568  [policy: 1.8982  value: 0.6913] | LR: 0.00001250 | Time: 1m5s
+  Epoch 75/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6505  [policy: 1.8902  value: 0.6921] | Elapsed: 14s
+  Epoch 75/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6528  [policy: 1.8932  value: 0.6915] | Elapsed: 27s
+  Epoch 75/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6542  [policy: 1.8949  value: 0.6912] | Elapsed: 40s
+  Epoch 75/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6552  [policy: 1.8963  value: 0.6911] | Elapsed: 53s
+Epoch 75/150 complete | Loss: 1.6563  [policy: 1.8976  value: 0.6913] | LR: 0.00001250 | Time: 1m5s
+  Epoch 76/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6511  [policy: 1.8911  value: 0.6913] | Elapsed: 14s
+  Epoch 76/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6524  [policy: 1.8927  value: 0.6911] | Elapsed: 27s
+  Epoch 76/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6538  [policy: 1.8945  value: 0.6910] | Elapsed: 40s
+  Epoch 76/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6549  [policy: 1.8959  value: 0.6911] | Elapsed: 53s
+Epoch 76/150 complete | Loss: 1.6558  [policy: 1.8970  value: 0.6911] | LR: 0.00001250 | Time: 1m5s
+  Epoch 77/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6528  [policy: 1.8933  value: 0.6909] | Elapsed: 14s
+  Epoch 77/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6535  [policy: 1.8941  value: 0.6911] | Elapsed: 27s
+  Epoch 77/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6542  [policy: 1.8949  value: 0.6911] | Elapsed: 40s
+  Epoch 77/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6549  [policy: 1.8958  value: 0.6913] | Elapsed: 54s
+Epoch 77/150 complete | Loss: 1.6552  [policy: 1.8963  value: 0.6911] | LR: 0.00001250 | Time: 1m5s
+  Epoch 78/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6506  [policy: 1.8903  value: 0.6917] | Elapsed: 14s
+  Epoch 78/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6524  [policy: 1.8926  value: 0.6915] | Elapsed: 27s
+  Epoch 78/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6535  [policy: 1.8942  value: 0.6910] | Elapsed: 40s
+  Epoch 78/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6544  [policy: 1.8952  value: 0.6910] | Elapsed: 54s
+Epoch 78/150 complete | Loss: 1.6547  [policy: 1.8956  value: 0.6910] | LR: 0.00001250 | Time: 1m5s
+  Epoch 79/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6493  [policy: 1.8889  value: 0.6908] | Elapsed: 14s
+  Epoch 79/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6508  [policy: 1.8908  value: 0.6908] | Elapsed: 27s
+  Epoch 79/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6520  [policy: 1.8924  value: 0.6906] | Elapsed: 40s
+  Epoch 79/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6532  [policy: 1.8939  value: 0.6906] | Elapsed: 54s
+Epoch 79/150 complete | Loss: 1.6542  [policy: 1.8950  value: 0.6909] | LR: 0.00001250 | Time: 1m5s
+  Epoch 80/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6502  [policy: 1.8900  value: 0.6907] | Elapsed: 14s
+  Epoch 80/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6523  [policy: 1.8924  value: 0.6916] | Elapsed: 27s
+  Epoch 80/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6524  [policy: 1.8927  value: 0.6912] | Elapsed: 40s
+  Epoch 80/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6530  [policy: 1.8935  value: 0.6912] | Elapsed: 53s
+Epoch 80/150 complete | Loss: 1.6537  [policy: 1.8943  value: 0.6910] | LR: 0.00000625 | Time: 1m5s
+  Epoch 81/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6466  [policy: 1.8859  value: 0.6896] | Elapsed: 14s
+  Epoch 81/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6463  [policy: 1.8854  value: 0.6900] | Elapsed: 27s
+  Epoch 81/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6463  [policy: 1.8853  value: 0.6902] | Elapsed: 40s
+  Epoch 81/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6468  [policy: 1.8859  value: 0.6903] | Elapsed: 54s
+Epoch 81/150 complete | Loss: 1.6472  [policy: 1.8865  value: 0.6903] | LR: 0.00000625 | Time: 1m5s
+  Epoch 82/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6436  [policy: 1.8817  value: 0.6910] | Elapsed: 14s
+  Epoch 82/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6452  [policy: 1.8838  value: 0.6907] | Elapsed: 27s
+  Epoch 82/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6453  [policy: 1.8840  value: 0.6904] | Elapsed: 40s
+  Epoch 82/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6461  [policy: 1.8851  value: 0.6903] | Elapsed: 53s
+Epoch 82/150 complete | Loss: 1.6467  [policy: 1.8858  value: 0.6903] | LR: 0.00000625 | Time: 1m5s
+  Epoch 83/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6435  [policy: 1.8819  value: 0.6899] | Elapsed: 14s
+  Epoch 83/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6444  [policy: 1.8830  value: 0.6900] | Elapsed: 27s
+  Epoch 83/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6453  [policy: 1.8840  value: 0.6902] | Elapsed: 40s
+  Epoch 83/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6458  [policy: 1.8847  value: 0.6903] | Elapsed: 53s
+Epoch 83/150 complete | Loss: 1.6465  [policy: 1.8855  value: 0.6903] | LR: 0.00000625 | Time: 1m5s
+  Epoch 84/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6431  [policy: 1.8814  value: 0.6898] | Elapsed: 14s
+  Epoch 84/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6452  [policy: 1.8840  value: 0.6897] | Elapsed: 27s
+  Epoch 84/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6456  [policy: 1.8845  value: 0.6901] | Elapsed: 40s
+  Epoch 84/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6457  [policy: 1.8846  value: 0.6901] | Elapsed: 54s
+Epoch 84/150 complete | Loss: 1.6462  [policy: 1.8851  value: 0.6902] | LR: 0.00000625 | Time: 1m5s
+  Epoch 85/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6448  [policy: 1.8832  value: 0.6910] | Elapsed: 14s
+  Epoch 85/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6443  [policy: 1.8829  value: 0.6902] | Elapsed: 27s
+  Epoch 85/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6446  [policy: 1.8832  value: 0.6903] | Elapsed: 40s
+  Epoch 85/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6451  [policy: 1.8838  value: 0.6903] | Elapsed: 53s
+Epoch 85/150 complete | Loss: 1.6459  [policy: 1.8848  value: 0.6902] | LR: 0.00000625 | Time: 1m5s
+  Epoch 86/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6437  [policy: 1.8821  value: 0.6902] | Elapsed: 14s
+  Epoch 86/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6453  [policy: 1.8841  value: 0.6899] | Elapsed: 27s
+  Epoch 86/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6452  [policy: 1.8839  value: 0.6901] | Elapsed: 40s
+  Epoch 86/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6455  [policy: 1.8844  value: 0.6901] | Elapsed: 53s
+Epoch 86/150 complete | Loss: 1.6456  [policy: 1.8845  value: 0.6902] | LR: 0.00000625 | Time: 1m5s
+  Epoch 87/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6418  [policy: 1.8797  value: 0.6899] | Elapsed: 14s
+  Epoch 87/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6433  [policy: 1.8816  value: 0.6901] | Elapsed: 27s
+  Epoch 87/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6451  [policy: 1.8838  value: 0.6904] | Elapsed: 40s
+  Epoch 87/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6452  [policy: 1.8840  value: 0.6903] | Elapsed: 53s
+Epoch 87/150 complete | Loss: 1.6454  [policy: 1.8842  value: 0.6902] | LR: 0.00000625 | Time: 1m5s
+  Epoch 88/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6444  [policy: 1.8829  value: 0.6904] | Elapsed: 14s
+  Epoch 88/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6443  [policy: 1.8829  value: 0.6902] | Elapsed: 27s
+  Epoch 88/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6449  [policy: 1.8835  value: 0.6902] | Elapsed: 40s
+  Epoch 88/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6448  [policy: 1.8835  value: 0.6900] | Elapsed: 54s
+Epoch 88/150 complete | Loss: 1.6451  [policy: 1.8839  value: 0.6901] | LR: 0.00000625 | Time: 1m5s
+  Epoch 89/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6419  [policy: 1.8800  value: 0.6896] | Elapsed: 14s
+  Epoch 89/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6423  [policy: 1.8804  value: 0.6900] | Elapsed: 27s
+  Epoch 89/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6440  [policy: 1.8825  value: 0.6901] | Elapsed: 40s
+  Epoch 89/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6444  [policy: 1.8829  value: 0.6900] | Elapsed: 53s
+Epoch 89/150 complete | Loss: 1.6448  [policy: 1.8835  value: 0.6901] | LR: 0.00000625 | Time: 1m5s
+  Epoch 90/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6440  [policy: 1.8825  value: 0.6901] | Elapsed: 14s
+  Epoch 90/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6436  [policy: 1.8820  value: 0.6900] | Elapsed: 27s
+  Epoch 90/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6441  [policy: 1.8826  value: 0.6902] | Elapsed: 40s
+  Epoch 90/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6443  [policy: 1.8829  value: 0.6901] | Elapsed: 54s
+Epoch 90/150 complete | Loss: 1.6445  [policy: 1.8832  value: 0.6900] | LR: 0.00000625 | Time: 1m5s
+  Epoch 91/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6421  [policy: 1.8800  value: 0.6903] | Elapsed: 14s
+  Epoch 91/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6422  [policy: 1.8802  value: 0.6902] | Elapsed: 27s
+  Epoch 91/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6434  [policy: 1.8817  value: 0.6900] | Elapsed: 40s
+  Epoch 91/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6441  [policy: 1.8826  value: 0.6901] | Elapsed: 54s
+Epoch 91/150 complete | Loss: 1.6443  [policy: 1.8828  value: 0.6900] | LR: 0.00000625 | Time: 1m5s
+  Epoch 92/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6427  [policy: 1.8808  value: 0.6904] | Elapsed: 14s
+  Epoch 92/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6414  [policy: 1.8792  value: 0.6902] | Elapsed: 27s
+  Epoch 92/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6428  [policy: 1.8810  value: 0.6901] | Elapsed: 40s
+  Epoch 92/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6438  [policy: 1.8822  value: 0.6900] | Elapsed: 53s
+Epoch 92/150 complete | Loss: 1.6440  [policy: 1.8826  value: 0.6900] | LR: 0.00000625 | Time: 1m5s
+  Epoch 93/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6427  [policy: 1.8808  value: 0.6902] | Elapsed: 14s
+  Epoch 93/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6424  [policy: 1.8804  value: 0.6903] | Elapsed: 27s
+  Epoch 93/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6425  [policy: 1.8806  value: 0.6902] | Elapsed: 40s
+  Epoch 93/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6433  [policy: 1.8816  value: 0.6900] | Elapsed: 53s
+Epoch 93/150 complete | Loss: 1.6438  [policy: 1.8822  value: 0.6900] | LR: 0.00000625 | Time: 1m5s
+  Epoch 94/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6402  [policy: 1.8779  value: 0.6896] | Elapsed: 14s
+  Epoch 94/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6424  [policy: 1.8805  value: 0.6901] | Elapsed: 27s
+  Epoch 94/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6425  [policy: 1.8806  value: 0.6900] | Elapsed: 40s
+  Epoch 94/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6432  [policy: 1.8816  value: 0.6898] | Elapsed: 54s
+Epoch 94/150 complete | Loss: 1.6435  [policy: 1.8819  value: 0.6899] | LR: 0.00000625 | Time: 1m5s
+  Epoch 95/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6409  [policy: 1.8786  value: 0.6900] | Elapsed: 14s
+  Epoch 95/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6423  [policy: 1.8804  value: 0.6898] | Elapsed: 27s
+  Epoch 95/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6425  [policy: 1.8807  value: 0.6899] | Elapsed: 40s
+  Epoch 95/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6430  [policy: 1.8813  value: 0.6900] | Elapsed: 53s
+Epoch 95/150 complete | Loss: 1.6433  [policy: 1.8816  value: 0.6899] | LR: 0.00000625 | Time: 1m5s
+  Epoch 96/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6409  [policy: 1.8788  value: 0.6893] | Elapsed: 13s
+  Epoch 96/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6412  [policy: 1.8791  value: 0.6896] | Elapsed: 27s
+  Epoch 96/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6416  [policy: 1.8796  value: 0.6898] | Elapsed: 40s
+  Epoch 96/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6423  [policy: 1.8804  value: 0.6897] | Elapsed: 53s
+Epoch 96/150 complete | Loss: 1.6430  [policy: 1.8813  value: 0.6899] | LR: 0.00000625 | Time: 1m5s
+  Epoch 97/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6424  [policy: 1.8806  value: 0.6899] | Elapsed: 14s
+  Epoch 97/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6423  [policy: 1.8804  value: 0.6899] | Elapsed: 27s
+  Epoch 97/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6423  [policy: 1.8803  value: 0.6901] | Elapsed: 40s
+  Epoch 97/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6421  [policy: 1.8801  value: 0.6899] | Elapsed: 53s
+Epoch 97/150 complete | Loss: 1.6428  [policy: 1.8810  value: 0.6899] | LR: 0.00000625 | Time: 1m5s
+  Epoch 98/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6398  [policy: 1.8774  value: 0.6893] | Elapsed: 14s
+  Epoch 98/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6400  [policy: 1.8775  value: 0.6897] | Elapsed: 27s
+  Epoch 98/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6413  [policy: 1.8792  value: 0.6898] | Elapsed: 40s
+  Epoch 98/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6421  [policy: 1.8801  value: 0.6900] | Elapsed: 54s
+Epoch 98/150 complete | Loss: 1.6425  [policy: 1.8807  value: 0.6898] | LR: 0.00000625 | Time: 1m6s
+  Epoch 99/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6408  [policy: 1.8786  value: 0.6896] | Elapsed: 14s
+  Epoch 99/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6419  [policy: 1.8800  value: 0.6897] | Elapsed: 27s
+  Epoch 99/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6425  [policy: 1.8807  value: 0.6897] | Elapsed: 40s
+  Epoch 99/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6422  [policy: 1.8803  value: 0.6898] | Elapsed: 54s
+Epoch 99/150 complete | Loss: 1.6422  [policy: 1.8803  value: 0.6898] | LR: 0.00000625 | Time: 1m5s
+  Epoch 100/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6408  [policy: 1.8786  value: 0.6896] | Elapsed: 14s
+  Epoch 100/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6412  [policy: 1.8790  value: 0.6898] | Elapsed: 27s
+  Epoch 100/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6411  [policy: 1.8789  value: 0.6900] | Elapsed: 40s
+  Epoch 100/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6415  [policy: 1.8794  value: 0.6899] | Elapsed: 54s
+Epoch 100/150 complete | Loss: 1.6420  [policy: 1.8800  value: 0.6898] | LR: 0.00000313 | Time: 1m5s
+  Epoch 101/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6370  [policy: 1.8739  value: 0.6892] | Elapsed: 14s
+  Epoch 101/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6373  [policy: 1.8742  value: 0.6894] | Elapsed: 27s
+  Epoch 101/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6376  [policy: 1.8747  value: 0.6894] | Elapsed: 40s
+  Epoch 101/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6382  [policy: 1.8755  value: 0.6894] | Elapsed: 53s
+Epoch 101/150 complete | Loss: 1.6386  [policy: 1.8759  value: 0.6894] | LR: 0.00000313 | Time: 1m5s
+  Epoch 102/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6361  [policy: 1.8731  value: 0.6884] | Elapsed: 14s
+  Epoch 102/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6371  [policy: 1.8741  value: 0.6889] | Elapsed: 27s
+  Epoch 102/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6375  [policy: 1.8745  value: 0.6892] | Elapsed: 40s
+  Epoch 102/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6380  [policy: 1.8752  value: 0.6894] | Elapsed: 54s
+Epoch 102/150 complete | Loss: 1.6383  [policy: 1.8756  value: 0.6894] | LR: 0.00000313 | Time: 1m5s
+  Epoch 103/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6371  [policy: 1.8741  value: 0.6892] | Elapsed: 14s
+  Epoch 103/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6372  [policy: 1.8743  value: 0.6890] | Elapsed: 27s
+  Epoch 103/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6380  [policy: 1.8752  value: 0.6892] | Elapsed: 40s
+  Epoch 103/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6381  [policy: 1.8753  value: 0.6893] | Elapsed: 54s
+Epoch 103/150 complete | Loss: 1.6382  [policy: 1.8754  value: 0.6894] | LR: 0.00000313 | Time: 1m5s
+  Epoch 104/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6370  [policy: 1.8739  value: 0.6894] | Elapsed: 14s
+  Epoch 104/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6377  [policy: 1.8747  value: 0.6895] | Elapsed: 27s
+  Epoch 104/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6382  [policy: 1.8754  value: 0.6894] | Elapsed: 40s
+  Epoch 104/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6380  [policy: 1.8752  value: 0.6893] | Elapsed: 54s
+Epoch 104/150 complete | Loss: 1.6381  [policy: 1.8752  value: 0.6894] | LR: 0.00000313 | Time: 1m5s
+  Epoch 105/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6367  [policy: 1.8734  value: 0.6899] | Elapsed: 14s
+  Epoch 105/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6368  [policy: 1.8737  value: 0.6893] | Elapsed: 27s
+  Epoch 105/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6380  [policy: 1.8752  value: 0.6892] | Elapsed: 40s
+  Epoch 105/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6382  [policy: 1.8754  value: 0.6892] | Elapsed: 53s
+Epoch 105/150 complete | Loss: 1.6379  [policy: 1.8751  value: 0.6894] | LR: 0.00000313 | Time: 1m5s
+  Epoch 106/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6363  [policy: 1.8729  value: 0.6895] | Elapsed: 14s
+  Epoch 106/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6384  [policy: 1.8756  value: 0.6896] | Elapsed: 27s
+  Epoch 106/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6378  [policy: 1.8749  value: 0.6895] | Elapsed: 40s
+  Epoch 106/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6377  [policy: 1.8747  value: 0.6893] | Elapsed: 54s
+Epoch 106/150 complete | Loss: 1.6378  [policy: 1.8749  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 107/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6355  [policy: 1.8717  value: 0.6904] | Elapsed: 14s
+  Epoch 107/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6367  [policy: 1.8734  value: 0.6900] | Elapsed: 27s
+  Epoch 107/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6378  [policy: 1.8749  value: 0.6896] | Elapsed: 40s
+  Epoch 107/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6377  [policy: 1.8748  value: 0.6894] | Elapsed: 53s
+Epoch 107/150 complete | Loss: 1.6377  [policy: 1.8748  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 108/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6343  [policy: 1.8705  value: 0.6892] | Elapsed: 14s
+  Epoch 108/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6357  [policy: 1.8722  value: 0.6894] | Elapsed: 27s
+  Epoch 108/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6366  [policy: 1.8734  value: 0.6893] | Elapsed: 40s
+  Epoch 108/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6373  [policy: 1.8743  value: 0.6892] | Elapsed: 54s
+Epoch 108/150 complete | Loss: 1.6376  [policy: 1.8746  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 109/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6368  [policy: 1.8738  value: 0.6886] | Elapsed: 14s
+  Epoch 109/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6364  [policy: 1.8732  value: 0.6893] | Elapsed: 27s
+  Epoch 109/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6368  [policy: 1.8736  value: 0.6895] | Elapsed: 40s
+  Epoch 109/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6371  [policy: 1.8741  value: 0.6894] | Elapsed: 53s
+Epoch 109/150 complete | Loss: 1.6375  [policy: 1.8745  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 110/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6352  [policy: 1.8718  value: 0.6888] | Elapsed: 14s
+  Epoch 110/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6366  [policy: 1.8735  value: 0.6891] | Elapsed: 27s
+  Epoch 110/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6366  [policy: 1.8734  value: 0.6892] | Elapsed: 40s
+  Epoch 110/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6368  [policy: 1.8737  value: 0.6892] | Elapsed: 54s
+Epoch 110/150 complete | Loss: 1.6373  [policy: 1.8743  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 111/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6363  [policy: 1.8729  value: 0.6895] | Elapsed: 14s
+  Epoch 111/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6362  [policy: 1.8729  value: 0.6892] | Elapsed: 27s
+  Epoch 111/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6371  [policy: 1.8740  value: 0.6893] | Elapsed: 40s
+  Epoch 111/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6371  [policy: 1.8741  value: 0.6894] | Elapsed: 54s
+Epoch 111/150 complete | Loss: 1.6372  [policy: 1.8741  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 112/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6367  [policy: 1.8733  value: 0.6901] | Elapsed: 14s
+  Epoch 112/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6374  [policy: 1.8743  value: 0.6899] | Elapsed: 27s
+  Epoch 112/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6371  [policy: 1.8740  value: 0.6895] | Elapsed: 40s
+  Epoch 112/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6372  [policy: 1.8741  value: 0.6893] | Elapsed: 53s
+Epoch 112/150 complete | Loss: 1.6371  [policy: 1.8740  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 113/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6356  [policy: 1.8720  value: 0.6900] | Elapsed: 14s
+  Epoch 113/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6360  [policy: 1.8727  value: 0.6895] | Elapsed: 27s
+  Epoch 113/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6365  [policy: 1.8733  value: 0.6892] | Elapsed: 40s
+  Epoch 113/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6366  [policy: 1.8735  value: 0.6893] | Elapsed: 54s
+Epoch 113/150 complete | Loss: 1.6369  [policy: 1.8738  value: 0.6893] | LR: 0.00000313 | Time: 1m5s
+  Epoch 114/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6367  [policy: 1.8734  value: 0.6898] | Elapsed: 14s
+  Epoch 114/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6351  [policy: 1.8715  value: 0.6898] | Elapsed: 27s
+  Epoch 114/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6358  [policy: 1.8724  value: 0.6894] | Elapsed: 40s
+  Epoch 114/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6365  [policy: 1.8733  value: 0.6895] | Elapsed: 54s
+Epoch 114/150 complete | Loss: 1.6368  [policy: 1.8737  value: 0.6892] | LR: 0.00000313 | Time: 1m5s
+  Epoch 115/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6364  [policy: 1.8732  value: 0.6893] | Elapsed: 14s
+  Epoch 115/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6365  [policy: 1.8735  value: 0.6888] | Elapsed: 27s
+  Epoch 115/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6365  [policy: 1.8733  value: 0.6892] | Elapsed: 40s
+  Epoch 115/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6365  [policy: 1.8734  value: 0.6893] | Elapsed: 53s
+Epoch 115/150 complete | Loss: 1.6367  [policy: 1.8735  value: 0.6892] | LR: 0.00000313 | Time: 1m5s
+  Epoch 116/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6341  [policy: 1.8701  value: 0.6899] | Elapsed: 14s
+  Epoch 116/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6348  [policy: 1.8712  value: 0.6894] | Elapsed: 27s
+  Epoch 116/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6357  [policy: 1.8724  value: 0.6891] | Elapsed: 40s
+  Epoch 116/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6363  [policy: 1.8730  value: 0.6893] | Elapsed: 54s
+Epoch 116/150 complete | Loss: 1.6365  [policy: 1.8734  value: 0.6892] | LR: 0.00000313 | Time: 1m5s
+  Epoch 117/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6366  [policy: 1.8737  value: 0.6886] | Elapsed: 14s
+  Epoch 117/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6359  [policy: 1.8727  value: 0.6885] | Elapsed: 27s
+  Epoch 117/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6366  [policy: 1.8735  value: 0.6891] | Elapsed: 40s
+  Epoch 117/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6367  [policy: 1.8735  value: 0.6892] | Elapsed: 54s
+Epoch 117/150 complete | Loss: 1.6364  [policy: 1.8732  value: 0.6892] | LR: 0.00000313 | Time: 1m5s
+  Epoch 118/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6358  [policy: 1.8725  value: 0.6888] | Elapsed: 14s
+  Epoch 118/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6348  [policy: 1.8712  value: 0.6891] | Elapsed: 27s
+  Epoch 118/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6358  [policy: 1.8725  value: 0.6892] | Elapsed: 40s
+  Epoch 118/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6358  [policy: 1.8725  value: 0.6893] | Elapsed: 54s
+Epoch 118/150 complete | Loss: 1.6363  [policy: 1.8731  value: 0.6892] | LR: 0.00000313 | Time: 1m5s
+  Epoch 119/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6333  [policy: 1.8696  value: 0.6883] | Elapsed: 14s
+  Epoch 119/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6346  [policy: 1.8710  value: 0.6887] | Elapsed: 27s
+  Epoch 119/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6351  [policy: 1.8717  value: 0.6887] | Elapsed: 40s
+  Epoch 119/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6358  [policy: 1.8724  value: 0.6890] | Elapsed: 53s
+Epoch 119/150 complete | Loss: 1.6362  [policy: 1.8729  value: 0.6892] | LR: 0.00000313 | Time: 1m5s
+  Epoch 120/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6345  [policy: 1.8711  value: 0.6884] | Elapsed: 14s
+  Epoch 120/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6349  [policy: 1.8714  value: 0.6890] | Elapsed: 27s
+  Epoch 120/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6347  [policy: 1.8711  value: 0.6891] | Elapsed: 40s
+  Epoch 120/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6355  [policy: 1.8721  value: 0.6889] | Elapsed: 54s
+Epoch 120/150 complete | Loss: 1.6361  [policy: 1.8728  value: 0.6892] | LR: 0.00000156 | Time: 1m5s
+  Epoch 121/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6352  [policy: 1.8715  value: 0.6896] | Elapsed: 14s
+  Epoch 121/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6333  [policy: 1.8693  value: 0.6891] | Elapsed: 27s
+  Epoch 121/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6330  [policy: 1.8691  value: 0.6888] | Elapsed: 40s
+  Epoch 121/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6338  [policy: 1.8700  value: 0.6889] | Elapsed: 54s
+Epoch 121/150 complete | Loss: 1.6343  [policy: 1.8706  value: 0.6890] | LR: 0.00000156 | Time: 1m6s
+  Epoch 122/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6328  [policy: 1.8690  value: 0.6879] | Elapsed: 14s
+  Epoch 122/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6332  [policy: 1.8693  value: 0.6889] | Elapsed: 27s
+  Epoch 122/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6337  [policy: 1.8699  value: 0.6889] | Elapsed: 40s
+  Epoch 122/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6339  [policy: 1.8702  value: 0.6890] | Elapsed: 54s
+Epoch 122/150 complete | Loss: 1.6341  [policy: 1.8704  value: 0.6890] | LR: 0.00000156 | Time: 1m5s
+  Epoch 123/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6318  [policy: 1.8674  value: 0.6894] | Elapsed: 14s
+  Epoch 123/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6328  [policy: 1.8687  value: 0.6891] | Elapsed: 27s
+  Epoch 123/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6333  [policy: 1.8693  value: 0.6889] | Elapsed: 40s
+  Epoch 123/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6332  [policy: 1.8694  value: 0.6888] | Elapsed: 54s
+Epoch 123/150 complete | Loss: 1.6341  [policy: 1.8704  value: 0.6890] | LR: 0.00000156 | Time: 1m5s
+  Epoch 124/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6334  [policy: 1.8697  value: 0.6883] | Elapsed: 14s
+  Epoch 124/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6335  [policy: 1.8697  value: 0.6887] | Elapsed: 27s
+  Epoch 124/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6333  [policy: 1.8695  value: 0.6887] | Elapsed: 41s
+  Epoch 124/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6339  [policy: 1.8702  value: 0.6889] | Elapsed: 54s
+Epoch 124/150 complete | Loss: 1.6340  [policy: 1.8703  value: 0.6890] | LR: 0.00000156 | Time: 1m6s
+  Epoch 125/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6325  [policy: 1.8684  value: 0.6893] | Elapsed: 14s
+  Epoch 125/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6334  [policy: 1.8695  value: 0.6891] | Elapsed: 27s
+  Epoch 125/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6335  [policy: 1.8696  value: 0.6891] | Elapsed: 40s
+  Epoch 125/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6337  [policy: 1.8699  value: 0.6890] | Elapsed: 54s
+Epoch 125/150 complete | Loss: 1.6339  [policy: 1.8702  value: 0.6890] | LR: 0.00000156 | Time: 1m5s
+  Epoch 126/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6327  [policy: 1.8688  value: 0.6884] | Elapsed: 14s
+  Epoch 126/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6336  [policy: 1.8698  value: 0.6889] | Elapsed: 27s
+  Epoch 126/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6340  [policy: 1.8703  value: 0.6890] | Elapsed: 41s
+  Epoch 126/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6334  [policy: 1.8694  value: 0.6891] | Elapsed: 54s
+Epoch 126/150 complete | Loss: 1.6339  [policy: 1.8701  value: 0.6889] | LR: 0.00000156 | Time: 1m6s
+  Epoch 127/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6322  [policy: 1.8681  value: 0.6885] | Elapsed: 14s
+  Epoch 127/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6324  [policy: 1.8684  value: 0.6885] | Elapsed: 27s
+  Epoch 127/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6327  [policy: 1.8687  value: 0.6887] | Elapsed: 40s
+  Epoch 127/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6335  [policy: 1.8697  value: 0.6887] | Elapsed: 54s
+Epoch 127/150 complete | Loss: 1.6338  [policy: 1.8700  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 128/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6343  [policy: 1.8706  value: 0.6889] | Elapsed: 14s
+  Epoch 128/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6337  [policy: 1.8698  value: 0.6893] | Elapsed: 27s
+  Epoch 128/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6331  [policy: 1.8691  value: 0.6891] | Elapsed: 40s
+  Epoch 128/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6336  [policy: 1.8698  value: 0.6890] | Elapsed: 53s
+Epoch 128/150 complete | Loss: 1.6338  [policy: 1.8700  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 129/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6329  [policy: 1.8688  value: 0.6891] | Elapsed: 14s
+  Epoch 129/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6328  [policy: 1.8689  value: 0.6886] | Elapsed: 27s
+  Epoch 129/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6331  [policy: 1.8692  value: 0.6888] | Elapsed: 40s
+  Epoch 129/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6337  [policy: 1.8698  value: 0.6890] | Elapsed: 53s
+Epoch 129/150 complete | Loss: 1.6337  [policy: 1.8699  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 130/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6329  [policy: 1.8690  value: 0.6886] | Elapsed: 14s
+  Epoch 130/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6334  [policy: 1.8695  value: 0.6890] | Elapsed: 27s
+  Epoch 130/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6334  [policy: 1.8696  value: 0.6888] | Elapsed: 40s
+  Epoch 130/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6339  [policy: 1.8702  value: 0.6890] | Elapsed: 54s
+Epoch 130/150 complete | Loss: 1.6336  [policy: 1.8698  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 131/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6339  [policy: 1.8702  value: 0.6890] | Elapsed: 14s
+  Epoch 131/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6331  [policy: 1.8692  value: 0.6888] | Elapsed: 27s
+  Epoch 131/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6330  [policy: 1.8690  value: 0.6889] | Elapsed: 40s
+  Epoch 131/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6334  [policy: 1.8695  value: 0.6889] | Elapsed: 53s
+Epoch 131/150 complete | Loss: 1.6336  [policy: 1.8697  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 132/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6334  [policy: 1.8693  value: 0.6895] | Elapsed: 14s
+  Epoch 132/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6333  [policy: 1.8695  value: 0.6887] | Elapsed: 27s
+  Epoch 132/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6331  [policy: 1.8692  value: 0.6885] | Elapsed: 40s
+  Epoch 132/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6331  [policy: 1.8693  value: 0.6886] | Elapsed: 54s
+Epoch 132/150 complete | Loss: 1.6335  [policy: 1.8697  value: 0.6889] | LR: 0.00000156 | Time: 1m6s
+  Epoch 133/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6317  [policy: 1.8675  value: 0.6886] | Elapsed: 14s
+  Epoch 133/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6318  [policy: 1.8676  value: 0.6887] | Elapsed: 27s
+  Epoch 133/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6326  [policy: 1.8686  value: 0.6886] | Elapsed: 40s
+  Epoch 133/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6334  [policy: 1.8696  value: 0.6886] | Elapsed: 54s
+Epoch 133/150 complete | Loss: 1.6334  [policy: 1.8696  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 134/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6332  [policy: 1.8693  value: 0.6887] | Elapsed: 14s
+  Epoch 134/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6328  [policy: 1.8688  value: 0.6888] | Elapsed: 27s
+  Epoch 134/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6328  [policy: 1.8688  value: 0.6888] | Elapsed: 40s
+  Epoch 134/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6333  [policy: 1.8694  value: 0.6890] | Elapsed: 54s
+Epoch 134/150 complete | Loss: 1.6334  [policy: 1.8695  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 135/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6334  [policy: 1.8696  value: 0.6886] | Elapsed: 14s
+  Epoch 135/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6325  [policy: 1.8684  value: 0.6885] | Elapsed: 27s
+  Epoch 135/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6330  [policy: 1.8690  value: 0.6887] | Elapsed: 40s
+  Epoch 135/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6334  [policy: 1.8696  value: 0.6887] | Elapsed: 54s
+Epoch 135/150 complete | Loss: 1.6333  [policy: 1.8694  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 136/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6299  [policy: 1.8654  value: 0.6880] | Elapsed: 14s
+  Epoch 136/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6314  [policy: 1.8671  value: 0.6882] | Elapsed: 27s
+  Epoch 136/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6324  [policy: 1.8684  value: 0.6883] | Elapsed: 40s
+  Epoch 136/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6325  [policy: 1.8685  value: 0.6888] | Elapsed: 54s
+Epoch 136/150 complete | Loss: 1.6333  [policy: 1.8693  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 137/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6298  [policy: 1.8650  value: 0.6887] | Elapsed: 14s
+  Epoch 137/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6322  [policy: 1.8681  value: 0.6886] | Elapsed: 27s
+  Epoch 137/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6324  [policy: 1.8683  value: 0.6886] | Elapsed: 40s
+  Epoch 137/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6329  [policy: 1.8690  value: 0.6886] | Elapsed: 54s
+Epoch 137/150 complete | Loss: 1.6332  [policy: 1.8693  value: 0.6889] | LR: 0.00000156 | Time: 1m6s
+  Epoch 138/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6326  [policy: 1.8686  value: 0.6885] | Elapsed: 14s
+  Epoch 138/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6329  [policy: 1.8690  value: 0.6887] | Elapsed: 27s
+  Epoch 138/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6328  [policy: 1.8688  value: 0.6886] | Elapsed: 40s
+  Epoch 138/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6331  [policy: 1.8692  value: 0.6888] | Elapsed: 54s
+Epoch 138/150 complete | Loss: 1.6331  [policy: 1.8692  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 139/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6322  [policy: 1.8681  value: 0.6886] | Elapsed: 14s
+  Epoch 139/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6326  [policy: 1.8686  value: 0.6886] | Elapsed: 27s
+  Epoch 139/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6326  [policy: 1.8686  value: 0.6887] | Elapsed: 40s
+  Epoch 139/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6329  [policy: 1.8690  value: 0.6888] | Elapsed: 54s
+Epoch 139/150 complete | Loss: 1.6331  [policy: 1.8691  value: 0.6889] | LR: 0.00000156 | Time: 1m5s
+  Epoch 140/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6326  [policy: 1.8686  value: 0.6885] | Elapsed: 14s
+  Epoch 140/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6325  [policy: 1.8684  value: 0.6886] | Elapsed: 27s
+  Epoch 140/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6325  [policy: 1.8685  value: 0.6886] | Elapsed: 40s
+  Epoch 140/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6327  [policy: 1.8687  value: 0.6887] | Elapsed: 54s
+Epoch 140/150 complete | Loss: 1.6330  [policy: 1.8691  value: 0.6889] | LR: 0.00000078 | Time: 1m5s
+  Epoch 141/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6330  [policy: 1.8689  value: 0.6893] | Elapsed: 14s
+  Epoch 141/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6318  [policy: 1.8674  value: 0.6891] | Elapsed: 27s
+  Epoch 141/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6319  [policy: 1.8676  value: 0.6888] | Elapsed: 40s
+  Epoch 141/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6320  [policy: 1.8678  value: 0.6885] | Elapsed: 54s
+Epoch 141/150 complete | Loss: 1.6321  [policy: 1.8679  value: 0.6888] | LR: 0.00000078 | Time: 1m5s
+  Epoch 142/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6315  [policy: 1.8672  value: 0.6887] | Elapsed: 14s
+  Epoch 142/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6318  [policy: 1.8676  value: 0.6884] | Elapsed: 27s
+  Epoch 142/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6317  [policy: 1.8674  value: 0.6889] | Elapsed: 40s
+  Epoch 142/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6318  [policy: 1.8676  value: 0.6886] | Elapsed: 54s
+Epoch 142/150 complete | Loss: 1.6320  [policy: 1.8678  value: 0.6888] | LR: 0.00000078 | Time: 1m5s
+  Epoch 143/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6317  [policy: 1.8674  value: 0.6889] | Elapsed: 14s
+  Epoch 143/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6318  [policy: 1.8676  value: 0.6887] | Elapsed: 27s
+  Epoch 143/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6318  [policy: 1.8675  value: 0.6889] | Elapsed: 40s
+  Epoch 143/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6317  [policy: 1.8675  value: 0.6888] | Elapsed: 54s
+Epoch 143/150 complete | Loss: 1.6320  [policy: 1.8678  value: 0.6888] | LR: 0.00000078 | Time: 1m5s
+  Epoch 144/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6319  [policy: 1.8679  value: 0.6880] | Elapsed: 14s
+  Epoch 144/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6326  [policy: 1.8686  value: 0.6883] | Elapsed: 27s
+  Epoch 144/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6327  [policy: 1.8687  value: 0.6885] | Elapsed: 40s
+  Epoch 144/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6324  [policy: 1.8684  value: 0.6887] | Elapsed: 54s
+Epoch 144/150 complete | Loss: 1.6320  [policy: 1.8678  value: 0.6887] | LR: 0.00000078 | Time: 1m5s
+  Epoch 145/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6309  [policy: 1.8665  value: 0.6882] | Elapsed: 14s
+  Epoch 145/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6319  [policy: 1.8678  value: 0.6885] | Elapsed: 27s
+  Epoch 145/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6318  [policy: 1.8676  value: 0.6886] | Elapsed: 40s
+  Epoch 145/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6322  [policy: 1.8680  value: 0.6887] | Elapsed: 53s
+Epoch 145/150 complete | Loss: 1.6319  [policy: 1.8677  value: 0.6887] | LR: 0.00000078 | Time: 1m5s
+  Epoch 146/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6301  [policy: 1.8653  value: 0.6893] | Elapsed: 14s
+  Epoch 146/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6312  [policy: 1.8668  value: 0.6890] | Elapsed: 27s
+  Epoch 146/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6316  [policy: 1.8673  value: 0.6888] | Elapsed: 40s
+  Epoch 146/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6320  [policy: 1.8678  value: 0.6889] | Elapsed: 53s
+Epoch 146/150 complete | Loss: 1.6319  [policy: 1.8677  value: 0.6887] | LR: 0.00000078 | Time: 1m5s
+  Epoch 147/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6314  [policy: 1.8671  value: 0.6887] | Elapsed: 14s
+  Epoch 147/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6312  [policy: 1.8668  value: 0.6889] | Elapsed: 27s
+  Epoch 147/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6321  [policy: 1.8680  value: 0.6887] | Elapsed: 40s
+  Epoch 147/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6319  [policy: 1.8677  value: 0.6886] | Elapsed: 54s
+Epoch 147/150 complete | Loss: 1.6319  [policy: 1.8676  value: 0.6887] | LR: 0.00000078 | Time: 1m5s
+  Epoch 148/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6311  [policy: 1.8668  value: 0.6886] | Elapsed: 14s
+  Epoch 148/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6318  [policy: 1.8676  value: 0.6886] | Elapsed: 27s
+  Epoch 148/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6321  [policy: 1.8679  value: 0.6889] | Elapsed: 40s
+  Epoch 148/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6317  [policy: 1.8673  value: 0.6890] | Elapsed: 54s
+Epoch 148/150 complete | Loss: 1.6318  [policy: 1.8676  value: 0.6887] | LR: 0.00000078 | Time: 1m5s
+  Epoch 149/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6312  [policy: 1.8670  value: 0.6883] | Elapsed: 14s
+  Epoch 149/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6311  [policy: 1.8667  value: 0.6888] | Elapsed: 27s
+  Epoch 149/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6315  [policy: 1.8673  value: 0.6885] | Elapsed: 40s
+  Epoch 149/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6313  [policy: 1.8669  value: 0.6887] | Elapsed: 54s
+Epoch 149/150 complete | Loss: 1.6318  [policy: 1.8676  value: 0.6887] | LR: 0.00000078 | Time: 1m5s
+  Epoch 150/150 | Batch 1,000/4,883 (20.5%) | Loss: 1.6328  [policy: 1.8691  value: 0.6876] | Elapsed: 14s
+  Epoch 150/150 | Batch 2,000/4,883 (41.0%) | Loss: 1.6319  [policy: 1.8677  value: 0.6886] | Elapsed: 27s
+  Epoch 150/150 | Batch 3,000/4,883 (61.4%) | Loss: 1.6316  [policy: 1.8673  value: 0.6887] | Elapsed: 40s
+  Epoch 150/150 | Batch 4,000/4,883 (81.9%) | Loss: 1.6317  [policy: 1.8675  value: 0.6887] | Elapsed: 54s
+Epoch 150/150 complete | Loss: 1.6318  [policy: 1.8675  value: 0.6887] | LR: 0.00000078 | Time: 1m6s
+============================================================
+Training finished in 167.8 minutes.
+
+--- Saving PyTorch model to: ../../models/TORCH_EVH_150EP_5M0SMPL_200KGM.pth ---
+PyTorch model saved.
+--- Saving move mapping to: ../../models/move_to_int_EVH_150EP_5M0SMPL_200KGM ---
+Move mapping saved.
+
+--- Exporting ONNX model to: ../../models/TORCH_EVH_150EP_5M0SMPL_200KGM.onnx ---
+ONNX model saved.
+
+All done.

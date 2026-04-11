@@ -17,14 +17,14 @@ from model import ChessModel
 # ---------------------------------------------------------------------------
 PGN_DIR       = "../../data/pgn"
 MODEL_OUT_DIR = "../../models"
-LIMIT_GAMES   = 100#200_000
-SAMPLE_LIMIT  = 500#5_000_000
+LIMIT_GAMES   = 200_000
+SAMPLE_LIMIT  = 5_000_000
 BATCH_SIZE    = 1024
-NUM_EPOCHS    = 5#100
+NUM_EPOCHS    = 150
 LEARNING_RATE = 0.0001
 LR_STEP_SIZE  = 20
 LR_GAMMA      = 0.5
-LOG_INTERVAL  = 500
+LOG_INTERVAL  = 1000
 NUM_WORKERS   = 3
 
 # Weight balancing the two loss terms.
