@@ -9,7 +9,7 @@ public class JsonToSerConverter {
             // Read JSON file
             String content = new String(
                     java.nio.file.Files.readAllBytes(
-                            java.nio.file.Paths.get("models\\move_map.json")
+                            java.nio.file.Paths.get("models\\move_map_100200.json")
                     )
             );
 
@@ -23,13 +23,13 @@ public class JsonToSerConverter {
 
             // Save as .ser file
             ObjectOutputStream oos = new ObjectOutputStream(
-                    new FileOutputStream("models\\move_map_5050.ser")
+                    new FileOutputStream("models\\move_map_100200.ser")
             );
 
             oos.writeObject(map);
             oos.close();
 
-            System.out.println("Saved move_map_5050.ser");
+            System.out.println("Saved move_map_100200.ser");
 
         } catch (Exception e) {
             e.printStackTrace();

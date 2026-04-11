@@ -2,78 +2,44 @@ import numpy as np
 from chess import Board
 
 
-def board_to_matrix(board: Board) -> np.ndarray:
-    """Build a (13, 8, 8) float32 matrix directly — avoids a later cast."""
-    matrix = np.zeros((13, 8, 8), dtype=np.float32)
-    for square, piece in board.piece_map().items():
+def board_to_matrix(board: Board):
+    # 8x8 is a size of the chess board.
+    # 12 = number of unique pieces.
+    # 13th board for legal moves (WHERE we can move)
+    # maybe 14th for squares FROM WHICH we can move? idk
+    matrix = np.zeros((13, 8, 8))
+    piece_map = board.piece_map()
+
+    # Populate first 12 8x8 boards (where pieces are)
+    for square, piece in piece_map.items():
         row, col = divmod(square, 8)
-        channel  = (piece.piece_type - 1) + (0 if piece.color else 6)
-        matrix[channel, row, col] = 1.0
-    for move in board.legal_moves:
-        row, col = divmod(move.to_square, 8)
-        matrix[12, row, col] = 1.0
+        piece_type = piece.piece_type - 1
+        piece_color = 0 if piece.color else 6
+        matrix[piece_type + piece_color, row, col] = 1
+
+    # Populate the legal moves board (13th 8x8 board)
+    legal_moves = board.legal_moves
+    for move in legal_moves:
+        to_square = move.to_square
+        row_to, col_to = divmod(to_square, 8)
+        matrix[12, row_to, col_to] = 1
+
     return matrix
 
 
-# Maps the PGN [Result] header string to a float score.
-# "*" means the game was unfinished/unknown — treated as a draw (0.0).
-RESULT_MAP = {
-    "1-0":  1.0,    # white wins
-    "0-1": -1.0,    # black wins
-    "1/2-1/2": 0.0, # draw
-    "*":    0.0,    # unknown / unfinished
-}
-
-
-def parse_outcome(game) -> float:
-    """
-    Extract the game outcome from the PGN Result header.
-    Returns +1.0 (white wins), -1.0 (black wins), or 0.0 (draw/unknown).
-    """
-    result = game.headers.get("Result", "*")
-    return RESULT_MAP.get(result, 0.0)
-
-
-def create_input_for_nn(games, sample_limit: int):
-    """
-    Convert games to (X, y, outcomes) arrays while capping at sample_limit.
-
-    Returns:
-        X        : float32 ndarray of shape (N, 13, 8, 8)
-        y        : str     ndarray of shape (N,)  — UCI move strings
-        outcomes : float32 ndarray of shape (N,)  — per-position game outcome
-                   Every position in a game gets the same outcome value because
-                   the result is known only at the end. The value head learns to
-                   map board states to that eventual result.
-    """
-    X        = np.empty((sample_limit, 13, 8, 8), dtype=np.float32)
-    y        = []
-    outcomes = []
-    idx      = 0
-
-    for game in games:
-        if idx >= sample_limit:
-            break
-
-        outcome = parse_outcome(game)
-        board   = game.board()
-
+def create_input_for_nn(games):
+    X = []
+    y = []
+    while games:
+        game = games.pop(0)
+        board = game.board()
         for move in game.mainline_moves():
-            if idx >= sample_limit:
-                break
-            X[idx] = board_to_matrix(board)
+            X.append(board_to_matrix(board))
             y.append(move.uci())
-            outcomes.append(outcome)
             board.push(move)
-            idx += 1
-
-    X = X[:idx]
-    return X, np.array(y), np.array(outcomes, dtype=np.float32)
+    return np.array(X, dtype=np.float32), np.array(y)
 
 
-def encode_moves(moves: np.ndarray):
-    """Return integer-encoded moves and the move->int mapping."""
-    unique_moves = list(dict.fromkeys(moves))
-    move_to_int  = {m: i for i, m in enumerate(unique_moves)}
-    encoded      = np.array([move_to_int[m] for m in moves], dtype=np.int64)
-    return encoded, move_to_int
+def encode_moves(moves):
+    move_to_int = {move: idx for idx, move in enumerate(set(moves))}
+    return np.array([move_to_int[move] for move in moves], dtype=np.float32), move_to_int

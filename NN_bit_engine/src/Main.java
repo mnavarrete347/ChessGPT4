@@ -22,8 +22,8 @@ public class Main {
     // ONNX model paths
     // -------------------------------------------------------------------------
 
-    private static final String MODEL_PATH    = "models/chess_model_5050.onnx";
-    private static final String MOVE_MAP_PATH = "models/move_map_5050.ser";
+    private static final String MODEL_PATH    = "models/chess_model_100200.onnx";
+    private static final String MOVE_MAP_PATH = "models/move_map_100200.ser";
 
     // -------------------------------------------------------------------------
     // Search parameters (mutable at runtime via UCI "go" command)
