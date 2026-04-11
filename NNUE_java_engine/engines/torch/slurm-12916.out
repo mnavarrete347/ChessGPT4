@@ -1,9 +1,0 @@
-/var/spool/slurm/slurmd/job12916/slurm_script: line 9: module: command not found
-/var/spool/slurm/slurmd/job12916/slurm_script: line 10: module: command not found
-
-CondaError: Run 'conda init' before 'conda activate'
-
-Traceback (most recent call last):
-  File "/data03/home/kaungnyin/ChessGPT4/NNUE_java_engine/engines/torch/model_train.py", line 9, in <module>
-    from chess import pgn
-ModuleNotFoundError: No module named 'chess'

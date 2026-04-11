@@ -8,6 +8,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from chess import pgn, Board
 
+from auxiliary_func import create_input_for_nn, encode_moves
 from dataset import ChessDataset
 from model import ChessModel
 
@@ -16,72 +17,28 @@ from model import ChessModel
 # ---------------------------------------------------------------------------
 PGN_DIR       = "../../data/pgn"
 MODEL_OUT_DIR = "../../models"
-LIMIT_GAMES   = 200_000   # was 50,000  — more game diversity = better model
-SAMPLE_LIMIT  = 5_000_000 # was 2,500,000 — 32GB+ RAM can handle this
-BATCH_SIZE    = 1024      # was 512 — P100 has 16GB VRAM, keep it fed
-NUM_EPOCHS    = 100       # was 50 — previous model hadn't plateaued yet
+LIMIT_GAMES   = 100#200_000
+SAMPLE_LIMIT  = 500#5_000_000
+BATCH_SIZE    = 1024
+NUM_EPOCHS    = 5#100
 LEARNING_RATE = 0.0001
-LR_STEP_SIZE  = 20        # halve the LR every N epochs
-LR_GAMMA      = 0.5       # LR multiplier on each step (0.0001 -> 0.00005 -> ...)
-LOG_INTERVAL  = 500       # print a batch-level update every N batches
-NUM_WORKERS   = 3         # Reduced from 4 to save memory
+LR_STEP_SIZE  = 20
+LR_GAMMA      = 0.5
+LOG_INTERVAL  = 500
+NUM_WORKERS   = 3
+
+# Weight balancing the two loss terms.
+# POLICY_LOSS_WEIGHT + VALUE_LOSS_WEIGHT should sum to 1.0.
+# Start with policy weighted higher — move prediction is the harder task
+# and the one your engine relies on most directly.
+# If the value head is underfitting, increase VALUE_LOSS_WEIGHT slightly.
+POLICY_LOSS_WEIGHT = 0.8
+VALUE_LOSS_WEIGHT  = 0.2
 
 # NOTE: AMP (mixed precision) is intentionally disabled.
 # The Tesla P100 does not have fp16 tensor cores (that's Volta/Turing+),
 # so autocast would be slower and less numerically stable on this hardware.
 USE_AMP = False
-
-# ---------------------------------------------------------------------------
-# Optimized helpers
-# ---------------------------------------------------------------------------
-
-def board_to_matrix(board: Board) -> np.ndarray:
-    """Build a (13, 8, 8) float32 matrix directly — avoids a later cast."""
-    matrix = np.zeros((13, 8, 8), dtype=np.float32)
-    for square, piece in board.piece_map().items():
-        row, col = divmod(square, 8)
-        channel  = (piece.piece_type - 1) + (0 if piece.color else 6)
-        matrix[channel, row, col] = 1.0
-    for move in board.legal_moves:
-        row, col = divmod(move.to_square, 8)
-        matrix[12, row, col] = 1.0
-    return matrix
-
-
-def create_input_for_nn(games, sample_limit: int):
-    """
-    Convert games to (X, y) arrays while capping at sample_limit.
-    - Pre-allocates X to avoid the 2x RAM spike from list -> np.array conversion.
-    - Stops early at sample_limit so we never build more data than needed.
-    - Uses float32 throughout so no dtype cast is needed.
-    """
-    X   = np.empty((sample_limit, 13, 8, 8), dtype=np.float32)
-    y   = []
-    idx = 0
-
-    for game in games:
-        if idx >= sample_limit:
-            break
-        board = game.board()
-        for move in game.mainline_moves():
-            if idx >= sample_limit:
-                break
-            X[idx] = board_to_matrix(board)
-            y.append(move.uci())
-            board.push(move)
-            idx += 1
-
-    X = X[:idx]
-    return X, np.array(y)
-
-
-def encode_moves(moves: np.ndarray):
-    """Return integer-encoded moves and the move->int mapping."""
-    unique_moves = list(dict.fromkeys(moves))
-    move_to_int  = {m: i for i, m in enumerate(unique_moves)}
-    encoded      = np.array([move_to_int[m] for m in moves], dtype=np.int64)
-    return encoded, move_to_int
-
 
 # ---------------------------------------------------------------------------
 # 1. Load PGN games
@@ -110,7 +67,7 @@ def load_games_with_limit(file_paths, max_games):
 
 
 print("=" * 60)
-print("CHESS ENGINE TRAINING SCRIPT")
+print("CHESS ENGINE TRAINING SCRIPT (with Evaluation Head)")
 print("=" * 60)
 
 files = [os.path.join(PGN_DIR, f) for f in os.listdir(PGN_DIR) if f.endswith(".pgn")]
@@ -122,24 +79,31 @@ games = load_games_with_limit(files, LIMIT_GAMES)
 print(f"Loaded {len(games)} games in {time.time() - t0:.1f}s")
 
 # ---------------------------------------------------------------------------
-# 2. Convert to arrays (RAM-efficient, capped during construction)
+# 2. Convert to arrays
 # ---------------------------------------------------------------------------
 print(f"\n--- Converting games to board matrices (cap: {SAMPLE_LIMIT:,}) ---", flush=True)
-t0   = time.time()
-X, y = create_input_for_nn(games, SAMPLE_LIMIT)
+t0          = time.time()
+X, y, outcomes = create_input_for_nn(games, SAMPLE_LIMIT)
 print(f"Samples built: {len(y):,}  ({time.time() - t0:.1f}s)")
 
-games = []   # release python-chess Game objects
+# Log outcome distribution so you can verify your PGN data is balanced
+n_white = int((outcomes ==  1.0).sum())
+n_black = int((outcomes == -1.0).sum())
+n_draw  = int((outcomes ==  0.0).sum())
+print(f"Outcome distribution — White: {n_white:,}  Black: {n_black:,}  Draw: {n_draw:,}", flush=True)
+
+games = []  # release python-chess Game objects
 
 print("\n--- Encoding moves ---", flush=True)
 y, move_to_int = encode_moves(y)
 num_classes    = len(move_to_int)
 print(f"Unique move classes: {num_classes}")
 
-# torch.from_numpy shares the underlying buffer — no second copy of X in RAM.
-print("\n--- Converting to PyTorch tensors (zero-copy for X) ---", flush=True)
-X = torch.from_numpy(X)
-y = torch.from_numpy(y)
+# Zero-copy conversions — torch.from_numpy shares the numpy buffer
+print("\n--- Converting to PyTorch tensors (zero-copy) ---", flush=True)
+X        = torch.from_numpy(X)
+y        = torch.from_numpy(y)
+outcomes = torch.from_numpy(outcomes)   # float32, shape (N,)
 
 # ---------------------------------------------------------------------------
 # 3. Dataset / DataLoader / Model
@@ -152,30 +116,28 @@ print(f"Using device: {device}")
 if use_cuda:
     print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-dataset    = ChessDataset(X, y)
+dataset    = ChessDataset(X, y, outcomes)
 dataloader = DataLoader(
     dataset,
     batch_size         = BATCH_SIZE,
     shuffle            = True,
     num_workers        = NUM_WORKERS,
-    pin_memory         = use_cuda,          # faster CPU->GPU transfers
-    persistent_workers = NUM_WORKERS > 0,   # avoids worker restart cost per epoch
+    pin_memory         = use_cuda,
+    persistent_workers = NUM_WORKERS > 0,
 )
 
 model     = ChessModel(num_classes=num_classes).to(device)
-criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-# Halves the learning rate every LR_STEP_SIZE epochs:
-#   Epoch  1-20:  lr = 0.0001
-#   Epoch 21-40:  lr = 0.00005
-#   Epoch 41-60:  lr = 0.000025
-#   Epoch 61-80:  lr = 0.0000125
-#   Epoch 81-100: lr = 0.00000625
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_GAMMA)
+scaler    = torch.cuda.amp.GradScaler(enabled=USE_AMP)
 
-# GradScaler: disabled on P100 (no fp16 tensor cores), kept for portability
-scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+# Policy loss: CrossEntropy over move classes
+policy_criterion = nn.CrossEntropyLoss()
+
+# Value loss: MSELoss between predicted eval score and actual outcome.
+# The model outputs a raw scalar; MSE penalises large deviations from
+# the true +1/0/-1 outcome score.
+value_criterion  = nn.MSELoss()
 
 total_batches = len(dataloader)
 print(
@@ -183,7 +145,8 @@ print(
     f"Batch size: {BATCH_SIZE}  |  "
     f"Epochs: {NUM_EPOCHS}  |  "
     f"Workers: {NUM_WORKERS}  |  "
-    f"AMP: {USE_AMP}",
+    f"AMP: {USE_AMP}  |  "
+    f"Policy/Value loss weights: {POLICY_LOSS_WEIGHT}/{VALUE_LOSS_WEIGHT}",
     flush=True
 )
 
@@ -196,21 +159,28 @@ print("=" * 60)
 training_start = time.time()
 
 for epoch in range(1, NUM_EPOCHS + 1):
-    epoch_start  = time.time()
+    epoch_start          = time.time()
     model.train()
-    running_loss = 0.0
+    running_loss         = 0.0
+    running_policy_loss  = 0.0
+    running_value_loss   = 0.0
 
-    for batch_idx, (inputs, labels) in enumerate(dataloader, start=1):
-        # non_blocking overlaps CPU->GPU transfer with compute (requires pin_memory)
-        inputs = inputs.to(device, non_blocking=True)
-        labels = labels.to(device, non_blocking=True)
+    for batch_idx, (inputs, labels, batch_outcomes) in enumerate(dataloader, start=1):
+        inputs         = inputs.to(device, non_blocking=True)
+        labels         = labels.to(device, non_blocking=True)
+        batch_outcomes = batch_outcomes.to(device, non_blocking=True)
 
-        # set_to_none=True skips the memset — faster than zeroing gradients
         optimizer.zero_grad(set_to_none=True)
 
         with torch.autocast(device_type=device.type, enabled=USE_AMP):
-            outputs = model(inputs)
-            loss    = criterion(outputs, labels)
+            policy_out, value_out = model(inputs)
+
+            policy_loss = policy_criterion(policy_out, labels)
+            value_loss  = value_criterion(value_out, batch_outcomes)
+
+            # Combined weighted loss — both heads train together via one
+            # backward pass through the shared backbone
+            loss = POLICY_LOSS_WEIGHT * policy_loss + VALUE_LOSS_WEIGHT * value_loss
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
@@ -218,32 +188,34 @@ for epoch in range(1, NUM_EPOCHS + 1):
         scaler.step(optimizer)
         scaler.update()
 
-        running_loss += loss.item()
+        running_loss        += loss.item()
+        running_policy_loss += policy_loss.item()
+        running_value_loss  += value_loss.item()
 
         if batch_idx % LOG_INTERVAL == 0:
-            avg_loss_so_far = running_loss / batch_idx
-            elapsed         = time.time() - epoch_start
-            pct             = 100.0 * batch_idx / total_batches
+            elapsed = time.time() - epoch_start
+            pct     = 100.0 * batch_idx / total_batches
             print(
                 f"  Epoch {epoch}/{NUM_EPOCHS} | "
                 f"Batch {batch_idx:,}/{total_batches:,} ({pct:.1f}%) | "
-                f"Avg loss: {avg_loss_so_far:.4f} | "
+                f"Loss: {running_loss / batch_idx:.4f}  "
+                f"[policy: {running_policy_loss / batch_idx:.4f}  "
+                f"value: {running_value_loss / batch_idx:.4f}] | "
                 f"Elapsed: {elapsed:.0f}s",
                 flush=True
             )
 
-    # Step the scheduler at the end of each epoch
     scheduler.step()
     current_lr = scheduler.get_last_lr()[0]
-
     epoch_time = time.time() - epoch_start
-    avg_loss   = running_loss / total_batches
     minutes    = int(epoch_time // 60)
     seconds    = int(epoch_time) % 60
 
     print(
         f"Epoch {epoch}/{NUM_EPOCHS} complete | "
-        f"Loss: {avg_loss:.4f} | "
+        f"Loss: {running_loss / total_batches:.4f}  "
+        f"[policy: {running_policy_loss / total_batches:.4f}  "
+        f"value: {running_value_loss / total_batches:.4f}] | "
         f"LR: {current_lr:.8f} | "
         f"Time: {minutes}m{seconds}s",
         flush=True
@@ -254,30 +226,54 @@ print("=" * 60)
 print(f"Training finished in {total_time / 60:.1f} minutes.")
 
 # ---------------------------------------------------------------------------
-# 5. Save model and move mapping
+# 5. Save .pth, move mapping, and .onnx
 # ---------------------------------------------------------------------------
 os.makedirs(MODEL_OUT_DIR, exist_ok=True)
 
-model_filename = (
-    f"TORCH_{NUM_EPOCHS}EP_"
-    f"{SAMPLE_LIMIT // 1_000_000}M{(SAMPLE_LIMIT % 1_000_000) // 100_000}SMPL_"
-    f"{LIMIT_GAMES // 1000}KGM.pth"
-)
-map_filename = (
-    f"move_to_int_{NUM_EPOCHS}EP_"
+base_name = (
+    f"TORCH_EVH_{NUM_EPOCHS}EP_"
     f"{SAMPLE_LIMIT // 1_000_000}M{(SAMPLE_LIMIT % 1_000_000) // 100_000}SMPL_"
     f"{LIMIT_GAMES // 1000}KGM"
 )
-model_path   = os.path.join(MODEL_OUT_DIR, model_filename)
-mapping_path = os.path.join(MODEL_OUT_DIR, map_filename)
+model_path   = os.path.join(MODEL_OUT_DIR, base_name + ".pth")
+onnx_path    = os.path.join(MODEL_OUT_DIR, base_name + ".onnx")
+mapping_path = os.path.join(MODEL_OUT_DIR, f"move_to_int_{base_name.replace('TORCH_', '')}")
 
-print(f"\n--- Saving model to: {model_path} ---", flush=True)
+print(f"\n--- Saving PyTorch model to: {model_path} ---", flush=True)
 torch.save(model.state_dict(), model_path)
-print("Model saved.")
+print("PyTorch model saved.")
 
 print(f"--- Saving move mapping to: {mapping_path} ---", flush=True)
 with open(mapping_path, "wb") as f:
     pickle.dump(move_to_int, f)
 print("Move mapping saved.")
+
+# Export to ONNX for use in your Java engine.
+# The model has two outputs: policy logits and value scalar.
+# In Java (ONNX Runtime) read them as:
+#   OnnxTensor[] outputs = session.run(inputs);
+#   float[] policyLogits = (float[]) outputs[0].getValue();  // shape [1, num_classes]
+#   float   valueScore   = ((float[][]) outputs[1].getValue())[0][0]; // shape [1]
+# Apply tanh to valueScore in Java: Math.tanh(valueScore)
+# to map it to the [-1, 1] range for display/use.
+print(f"\n--- Exporting ONNX model to: {onnx_path} ---", flush=True)
+model.eval()
+dummy_input = torch.zeros(1, 13, 8, 8, dtype=torch.float32).to(device)
+torch.onnx.export(
+    model,
+    dummy_input,
+    onnx_path,
+    export_params    = True,
+    opset_version    = 17,
+    do_constant_folding = True,
+    input_names      = ["board_state"],
+    output_names     = ["policy_logits", "value"],
+    dynamic_axes     = {
+        "board_state":   {0: "batch_size"},
+        "policy_logits": {0: "batch_size"},
+        "value":         {0: "batch_size"},
+    },
+)
+print("ONNX model saved.")
 
 print("\nAll done.")
