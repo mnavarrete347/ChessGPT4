@@ -24,7 +24,7 @@ LEARNING_RATE = 0.0001
 LR_STEP_SIZE  = 20        # halve the LR every N epochs
 LR_GAMMA      = 0.5       # LR multiplier on each step (0.0001 -> 0.00005 -> ...)
 LOG_INTERVAL  = 500       # print a batch-level update every N batches
-NUM_WORKERS   = 8         # was 4 — more CPU cores available on server
+NUM_WORKERS   = 3         # Reduced from 4 to save memory
 
 # NOTE: AMP (mixed precision) is intentionally disabled.
 # The Tesla P100 does not have fp16 tensor cores (that's Volta/Turing+),
