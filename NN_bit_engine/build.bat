@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 echo Compiling source files with dependencies...
 :: Use wildcard to include all JARs in the lib folder
-javac -encoding UTF-8 -cp "lib/*" -d bin src\Main.java
+javac -encoding UTF-8 -cp "lib/*" -d bin src\*
 if %errorlevel% neq 0 (
     echo Compilation failed!
     exit /b %errorlevel%
@@ -11,7 +11,7 @@ if %errorlevel% neq 0 (
 
 echo Creating engine.jar...
 echo Main-Class: Main > manifest.txt
-echo Class-Path: lib/onnxruntime-1.17.0.jar >> manifest.txt
+echo Class-Path: lib/onnxruntime-1.24.3.jar >> manifest.txt
 
 jar cfm engine.jar manifest.txt -C bin .
 if %errorlevel% neq 0 (

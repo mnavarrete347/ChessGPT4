@@ -161,14 +161,12 @@ public class Main {
                 pos = Position.startPos();
             } else if (line.startsWith("position")) {
                 pos = parsePosition(line, pos);
-                pos.printBoard();
             } else if (line.startsWith("go")) {
                 parseGo(line);
                 int m = iterativeSearch(pos);
                 if (m == 0) out.println("bestmove 0000");
                 else out.println("bestmove " + Move.toUci(m));
                 pos = pos.makeMove(m);
-                pos.printBoard();
             } else if (line.startsWith("perft")) {
                 runPerft(pos, 1);
                 runPerft(pos, 2);
@@ -290,12 +288,13 @@ public class Main {
         startTime = System.currentTimeMillis();
         timeLimit = (long)(moveTimeMs * 0.85);
         int bestMoveFound = 0;
-
-        for (int depth = 1; depth <= max_depth; depth++) {
+        int depth;
+        for (depth = 1; depth <= max_depth; depth++) {
             int m = findBest(pos, depth);
             if (System.currentTimeMillis() - startTime > timeLimit) break;
             bestMoveFound = m;
         }
+        System.out.println("[Bit java] depth: " + depth);
         return bestMoveFound;
     }
 
@@ -594,20 +593,6 @@ public class Main {
             if ((bb & bit) != 0) return 'b'; if ((br & bit) != 0) return 'r';
             if ((bq & bit) != 0) return 'q'; if ((bk & bit) != 0) return 'k';
             return '.';
-        }
-
-        void printBoard() {
-            System.out.println();
-            for (int rank = 7; rank >= 0; rank--) {
-                System.out.print((rank + 1) + "  "); // Rank labels (8-1)
-                for (int file = 0; file < 8; file++) {
-                    int sq = rank * 8 + file;
-                    System.out.print(getPieceAt(sq) + " ");
-                }
-                System.out.println();
-            }
-            System.out.println("\n   a b c d e f g h"); // File labels (a-h)
-            System.out.println();
         }
 
         Position makeMove(int m) {
