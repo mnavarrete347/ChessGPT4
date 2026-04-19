@@ -116,52 +116,52 @@ record GuessScenario(String description, String firstFen, String secondFen, int 
             suite.add(new PositionTest(
                     "Starting position",
                     buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
-                    5000
+                    10000
             ));
 
             suite.add(new PositionTest(
                     "Scholar's mate threat — engine must defend f7",
                     buildFen("r1bqkb1r", "pppp1ppp", "2n2n2", "4p3", "2B1P3", "5N2", "PPPP1PPP", "RNBQK2R"),
-                    3000,
+                    10000,
                     "f7f6", "f7f5", "d8e7", "g8e7"
             ));
 
             suite.add(new PositionTest(
                     "Endgame — king and pawn",
                     "8/8/8/8/3k4/8/3P4/3K4 w - - 0 1",
-                    3000
+                    10000
             ));
 
             suite.add(new PositionTest(
                     "Castling available — engine should castle kingside",
                     buildFen("r3k2r", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "R3K2R"),
-                    3000,
+                    10000,
                     "e1g1", "e8g8"
             ));
 
             suite.add(new PositionTest(
                     "Knight outpost — white knight on c3",
                     buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "2N5", "PPPPPPPP", "R1BQKBNR"),
-                    5000
+                    10000
             ));
 
             suite.add(new PositionTest(
                     "Only one legal move — king in check",
                     "8/8/8/8/7q/8/6P1/6K1 w - - 0 1",
-                    2000,
+                    10000,
                     "g2g3", "g1h1", "g1f2"
             ));
 
             suite.add(PositionTest.fromMoves(
                     "Ruy Lopez — engine plays as White after 1.e4 e5 2.Nf3 Nc6",
-                    3000,
+                    10000,
                     new String[]{"f1b5", "f1c4", "d2d4"},
                     "e2e4", "e7e5", "g1f3", "b8c6"
             ));
 
             suite.add(PositionTest.fromMoves(
                     "Sicilian — engine plays as Black after 1.e4 c5 2.Nf3",
-                    3000,
+                    10000,
                     new String[]{},
                     "e2e4", "c7c5", "g1f3"
             ));

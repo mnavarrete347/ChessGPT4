@@ -188,10 +188,7 @@ public class Search {
                     generated++;
                 }
 
-                // Yield after each inference so other threads (and the OS) get
-                // CPU time between calls. This is more effective than a fixed
-                // sleep because it hands control back immediately rather than
-                // blocking for an arbitrary minimum duration.
+                // Yield after each inference so other threads (and the OS) get CPU time between calls.
                 Thread.yield();
             }
 
