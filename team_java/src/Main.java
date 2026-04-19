@@ -326,6 +326,7 @@ public class Main {
 
         return bestMove; // returns best move
     }
+
     static int alphaBeta(Position pos, int depth, int alpha, int beta, boolean maximizing) {
         List<Move> moves = pos.legalMoves();
         // base cases and time running out -> find score and return immediately

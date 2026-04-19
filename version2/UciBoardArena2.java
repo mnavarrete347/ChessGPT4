@@ -19,8 +19,8 @@ public class UciBoardArena2 extends JFrame {
 
     // C:\\Users\\kaung\\Documents\\Coding\\Java_Code\\chessGPTCode\\team_java\\run.bat
     // C:\Users\kaung\Documents\Coding\Java_Code\chessGPTCode\team_c\run.bat
-    private final JTextField engineWhiteCmd = new JTextField("./../../Samples/team_c/run.sh");
-    private final JTextField engineBlackCmd = new JTextField("./../../Samples/team_java/run.sh");
+    private final JTextField engineWhiteCmd = new JTextField("..\\NN_bit_engine\\run.bat");
+    private final JTextField engineBlackCmd = new JTextField("..\\bit_java\\run.bat");
 
     private final JButton browseWhite = new JButton("Browse…");
     private final JButton browseBlack = new JButton("Browse…");
@@ -467,6 +467,7 @@ public class UciBoardArena2 extends JFrame {
                 String line;
                 while ((line = stdout.readLine()) != null) {
                     outLines.offer(line);
+                    //logger.log(line);
                 }
             } catch (IOException ignored) {
             }
