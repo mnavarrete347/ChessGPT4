@@ -448,6 +448,10 @@ public class Main {
         1	0	1	2	3	4	5	6	7
      */
 
+    /**
+     * Move class contains from index, to index and a character that determines piece promotion
+     *
+     */
     static final class Move {
         final int from; // 0..63
         final int to;   // 0..63
