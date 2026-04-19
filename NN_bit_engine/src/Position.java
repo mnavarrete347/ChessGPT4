@@ -11,13 +11,12 @@ public final class Position {
     public final boolean whiteToMove;
     public final boolean whiteKingSideCastle, whiteQueenSideCastle;
     public final boolean blackKingSideCastle, blackQueenSideCastle;
-    public final int enPassantSq;
 
     // Incremental evaluation (white-relative)
-    public int mgScore, egScore, phase;
+    public int score;
 
     public Position(long[] pieces, boolean whiteToMove,
-                    boolean wK, boolean wQ, boolean bK, boolean bQ, int epSq) {
+                    boolean wK, boolean wQ, boolean bK, boolean bQ) {
         this.wp = pieces[0]; this.wn = pieces[1]; this.wb = pieces[2];
         this.wr = pieces[3]; this.wq = pieces[4]; this.wk = pieces[5];
         this.bp = pieces[6]; this.bn = pieces[7]; this.bb = pieces[8];
@@ -32,7 +31,6 @@ public final class Position {
         this.whiteQueenSideCastle = wQ;
         this.blackKingSideCastle  = bK;
         this.blackQueenSideCastle = bQ;
-        this.enPassantSq          = epSq;
     }
 
     public static Position startPos() {
@@ -56,10 +54,8 @@ public final class Position {
         }
 
         boolean[] cr  = parseCastlingRights(parts.length > 2 ? parts[2] : "-");
-        String    ept = parts.length > 3 ? parts[3] : "-";
-        int       epSq = ept.equals("-") ? -1 : Move.squareIndex(ept);
 
-        Position pos = new Position(p, wtm, cr[0], cr[1], cr[2], cr[3], epSq);
+        Position pos = new Position(p, wtm, cr[0], cr[1], cr[2], cr[3]);
         pos.calculateInitialScores();
         return pos;
     }
@@ -69,55 +65,29 @@ public final class Position {
     // -------------------------------------------------------------------------
 
     private void calculateInitialScores() {
-        mgScore = 0; egScore = 0; phase = 0;
+        score = 0;
         for (int i = 0; i < 12; i++) {
             long bb = bbByIndex(i);
             while (bb != 0) {
                 int sq = Long.numberOfTrailingZeros(bb);
-                mgScore += mgValue(i, sq);
-                egScore += egValue(i, sq);
-                phase   += piecePhase(i);
+                score += value(i, sq);
                 bb &= bb - 1;
             }
         }
     }
 
-    static int mgValue(int idx, int sq) {
+    static int value(int idx, int sq) {
         boolean w = idx < 6;
         int t = w ? sq : sq ^ 56;
         int s = switch (idx % 6) {
-            case 0 -> Constants.MG_PAWN   + Constants.PAWN_PST[t];
-            case 1 -> Constants.MG_KNIGHT + Constants.KNIGHT_PST[t];
-            case 2 -> Constants.MG_BISHOP + Constants.BISHOP_PST[t];
-            case 3 -> Constants.MG_ROOK   + Constants.ROOK_PST[t];
-            case 4 -> Constants.MG_QUEEN  + Constants.QUEEN_PST[t];
-            default-> Constants.MG_KING   + Constants.KING_PST[t];
+            case 0 -> Constants.PAWN   + Constants.PAWN_PST[t];
+            case 1 -> Constants.KNIGHT + Constants.KNIGHT_PST[t];
+            case 2 -> Constants.BISHOP + Constants.BISHOP_PST[t];
+            case 3 -> Constants.ROOK   + Constants.ROOK_PST[t];
+            case 4 -> Constants.QUEEN  + Constants.QUEEN_PST[t];
+            default-> Constants.KING   + Constants.KING_PST[t];
         };
         return w ? s : -s;
-    }
-
-    static int egValue(int idx, int sq) {
-        boolean w = idx < 6;
-        int t = w ? sq : sq ^ 56;
-        int s = switch (idx % 6) {
-            case 0 -> Constants.EG_PAWN   + Constants.PAWN_PST_EG[t];
-            case 1 -> Constants.EG_KNIGHT + Constants.KNIGHT_PST_EG[t];
-            case 2 -> Constants.EG_BISHOP + Constants.BISHOP_PST_EG[t];
-            case 3 -> Constants.EG_ROOK   + Constants.ROOK_PST_EG[t];
-            case 4 -> Constants.EG_QUEEN  + Constants.QUEEN_PST_EG[t];
-            default-> Constants.EG_KING   + Constants.KING_PST_EG[t];
-        };
-        return w ? s : -s;
-    }
-
-    static int piecePhase(int idx) {
-        return switch (idx % 6) {
-            case 1 -> Constants.KNIGHT_PHASE;
-            case 2 -> Constants.BISHOP_PHASE;
-            case 3 -> Constants.ROOK_PHASE;
-            case 4 -> Constants.QUEEN_PHASE;
-            default -> 0;
-        };
     }
 
     // -------------------------------------------------------------------------
@@ -128,54 +98,42 @@ public final class Position {
         long[] next = {wp,wn,wb,wr,wq,wk,bp,bn,bb,br,bq,bk};
         int from  = Move.getFrom(move), to = Move.getTo(move), promo = Move.getPromo(move);
         long fBit = 1L << from, tBit = 1L << to;
-        int nMg = mgScore, nEg = egScore, nPh = phase;
+        int nScore = score;
 
         // Identify moving piece
         int movIdx = -1;
         for (int i = 0; i < 12; i++) if ((next[i] & fBit) != 0) { movIdx = i; break; }
+        if (movIdx == -1) {
+            return this; // protects against annoying crashes
+        }
 
-        nMg -= mgValue(movIdx, from);
-        nEg -= egValue(movIdx, from);
+        nScore -= value(movIdx, from);
 
         // Capture
         if ((allPieces & tBit) != 0) {
             for (int i = 0; i < 12; i++) {
                 if ((next[i] & tBit) != 0) {
-                    nMg -= mgValue(i, to); nEg -= egValue(i, to); nPh -= piecePhase(i);
+                    nScore -= value(i, to);
                     next[i] ^= tBit;
                     break;
                 }
             }
         }
 
-        // En passant capture
-        int nextEpSq = -1;
-        if (Constants.ENABLE_EN_PASSANT && (movIdx == 0 || movIdx == 6) && to == enPassantSq) {
-            int capSq  = whiteToMove ? to - 8 : to + 8;
-            int vicIdx = whiteToMove ? 6 : 0;
-            nMg -= mgValue(vicIdx, capSq); nEg -= egValue(vicIdx, capSq);
-            next[vicIdx] ^= 1L << capSq;
-        }
-
         // Move piece
         next[movIdx] ^= fBit | tBit;
-        nMg += mgValue(movIdx, to);
-        nEg += egValue(movIdx, to);
+        nScore += value(movIdx, to);
 
         // Promotion
         if (promo != 0 && (movIdx == 0 || movIdx == 6)) {
-            nMg -= mgValue(movIdx, to); nEg -= egValue(movIdx, to);
+            nScore -= value(movIdx, to);
             next[movIdx] ^= tBit;
             int pIdx = whiteToMove
                     ? (promo == 1 ? 4 : promo == 2 ? 3 : promo == 3 ? 2 : 1)
                     : (promo == 1 ? 10 : promo == 2 ? 9 : promo == 3 ? 8 : 7);
             next[pIdx] |= tBit;
-            nMg += mgValue(pIdx, to); nEg += egValue(pIdx, to); nPh += piecePhase(pIdx);
+            nScore += value(pIdx, to);
         }
-
-        // Double pawn push → set EP square
-        if (Constants.ENABLE_EN_PASSANT && (movIdx == 0 || movIdx == 6) && Math.abs(to - from) == 16)
-            nextEpSq = (from + to) / 2;
 
         // Update castling rights
         // Bug fix: original used movIdx==5 instead of checking from==4 for the king square,
@@ -192,26 +150,24 @@ public final class Position {
         // Castling rook moves
         if (movIdx == 5 && from == 4) {
             if (to == 6) {
-                nMg += mgValue(3,5) - mgValue(3,7); nEg += egValue(3,5) - egValue(3,7);
+                nScore += value(3,5) - value(3,7);
                 next[3] ^= (1L << 7) | (1L << 5);
             } else if (to == 2) {
-                nMg += mgValue(3,3) - mgValue(3,0); nEg += egValue(3,3) - egValue(3,0);
+                nScore += value(3,3) - value(3,0);
                 next[3] ^= 1L | (1L << 3);
             }
         } else if (movIdx == 11 && from == 60) {
             if (to == 62) {
-                nMg += mgValue(9,61) - mgValue(9,63); nEg += egValue(9,61) - egValue(9,63);
+                nScore += value(9,61) - value(9,63);
                 next[9] ^= (1L << 63) | (1L << 61);
             } else if (to == 58) {
-                nMg += mgValue(9,59) - mgValue(9,56); nEg += egValue(9,59) - egValue(9,56);
+                nScore += value(9,59) - value(9,56);
                 next[9] ^= (1L << 56) | (1L << 59);
             }
         }
 
-        Position result = new Position(next, !whiteToMove, wK, wQ, bK, bQ, nextEpSq);
-        result.mgScore  = nMg;
-        result.egScore  = nEg;
-        result.phase    = nPh;
+        Position result = new Position(next, !whiteToMove, wK, wQ, bK, bQ);
+        result.score  = nScore;
         return result;
     }
 
@@ -256,11 +212,6 @@ public final class Position {
             long cR = (wp << 9) & enemy & ~Constants.FILE_A;
             addPawnMoves(list, cR & ~Constants.RANK_8, 9, false);
             addPawnMoves(list, cR &  Constants.RANK_8, 9, true);
-            if (Constants.ENABLE_EN_PASSANT && enPassantSq != -1) {
-                long ep = 1L << enPassantSq;
-                if (((wp << 7) & ep & ~Constants.FILE_H) != 0) list.add(Move.create(enPassantSq - 7, enPassantSq, 0));
-                if (((wp << 9) & ep & ~Constants.FILE_A) != 0) list.add(Move.create(enPassantSq - 9, enPassantSq, 0));
-            }
         } else {
             long single = (bp >> 8) & empty;
             addPawnMoves(list, single & ~Constants.RANK_1, -8, false);
@@ -272,11 +223,6 @@ public final class Position {
             long cR = (bp >> 7) & enemy & ~Constants.FILE_A;
             addPawnMoves(list, cR & ~Constants.RANK_1, -7, false);
             addPawnMoves(list, cR &  Constants.RANK_1, -7, true);
-            if (Constants.ENABLE_EN_PASSANT && enPassantSq != -1) {
-                long ep = 1L << enPassantSq;
-                if (((bp >> 9) & ep & ~Constants.FILE_H) != 0) list.add(Move.create(enPassantSq + 9, enPassantSq, 0));
-                if (((bp >> 7) & ep & ~Constants.FILE_A) != 0) list.add(Move.create(enPassantSq + 7, enPassantSq, 0));
-            }
         }
     }
 
@@ -454,5 +400,13 @@ public final class Position {
             case  9 -> br; case 10 -> bq; case 11 -> bk;
             default -> 0L;
         };
+    }
+
+    public int totalMaterial() {
+        return  Long.bitCount(wp | bp) * Constants.PAWN +
+                Long.bitCount(wn | bn) * Constants.KNIGHT +
+                Long.bitCount(wb | bb) * Constants.BISHOP +
+                Long.bitCount(wr | br) * Constants.ROOK +
+                Long.bitCount(wq | bq) * Constants.QUEEN;
     }
 }

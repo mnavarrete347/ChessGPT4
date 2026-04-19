@@ -3,9 +3,9 @@ public class Search {
     // -------------------------------------------------------------------------
     // Shared search state
     // -------------------------------------------------------------------------
-    static volatile long    startTime;
-    static volatile long    timeLimit;
-    static volatile int     lastScore     = 0;
+    static volatile long startTime;
+    static volatile long timeLimit;
+    static volatile int  lastScore = 0;
 
     static int  maxDepth   = 100;
     static long moveTimeMs = 10_000;
@@ -14,14 +14,23 @@ public class Search {
         return System.currentTimeMillis() - startTime > timeLimit;
     }
 
-    // -------------------------------------------------------------------------
-    // PST evaluation
-    // -------------------------------------------------------------------------
-
     static int evaluate(Position pos) {
-        int phase = Math.clamp(pos.phase, 0, Constants.MAX_PHASE);
-        int score = (pos.mgScore * phase + pos.egScore * (Constants.MAX_PHASE - phase)) / Constants.MAX_PHASE;
-        return pos.whiteToMove ? score : -score;
+        int eval = pos.score;
+
+        if (pos.totalMaterial() < 2200) {
+            int whiteKingSq = Long.numberOfTrailingZeros(pos.wk);
+            int blackKingSq = Long.numberOfTrailingZeros(pos.bk);
+            eval += kingCentralBonus(whiteKingSq);
+            eval -= kingCentralBonus(blackKingSq);
+        }
+        return pos.whiteToMove ? eval : -eval;
+    }
+
+    static int kingCentralBonus(int sq) {
+        int file = sq % 8;
+        int rank = sq / 8;
+        int distFromCenter = Math.abs(file - 3) + Math.abs(rank - 3);
+        return (7 - distFromCenter) * 5;
     }
 
     // -------------------------------------------------------------------------
@@ -31,19 +40,16 @@ public class Search {
         int[] scores = new int[list.count];
         for (int i = 0; i < list.count; i++) {
             int m = list.moves[i];
-            if (m == prevBest) scores[i] = 20000;
-            else if (m == nnHint) scores[i] = 10000;
-            else scores[i] = scoreMove(pos, m);
+            if (m == prevBest)     scores[i] = 20000;
+            else if (m == nnHint)  scores[i] = 10000;
+            else                   scores[i] = scoreMove(pos, m);
         }
-        // Simple selection sort for move ordering
-        for (int i = 0; i < list.count - 1; i++) {
-            for (int j = i + 1; j < list.count; j++) {
+        for (int i = 0; i < list.count - 1; i++)
+            for (int j = i + 1; j < list.count; j++)
                 if (scores[j] > scores[i]) {
                     int t = list.moves[i]; list.moves[i] = list.moves[j]; list.moves[j] = t;
-                    int s = scores[i]; scores[i] = scores[j]; scores[j] = s;
+                    int s = scores[i];     scores[i]     = scores[j];     scores[j]     = s;
                 }
-            }
-        }
     }
 
     private static int scoreMove(Position pos, int move) {
@@ -56,9 +62,9 @@ public class Search {
 
     private static int pieceValue(char p) {
         return switch (Character.toUpperCase(p)) {
-            case 'P' -> Constants.MG_PAWN;   case 'N' -> Constants.MG_KNIGHT;
-            case 'B' -> Constants.MG_BISHOP; case 'R' -> Constants.MG_ROOK;
-            case 'Q' -> Constants.MG_QUEEN;  case 'K' -> 10_000;
+            case 'P' -> Constants.PAWN;   case 'N' -> Constants.KNIGHT;
+            case 'B' -> Constants.BISHOP; case 'R' -> Constants.ROOK;
+            case 'Q' -> Constants.QUEEN;  case 'K' -> 10_000;
             default  -> 0;
         };
     }
@@ -66,7 +72,6 @@ public class Search {
     // -------------------------------------------------------------------------
     // Negamax iterative deepening
     // -------------------------------------------------------------------------
-    // nnHint != 0 promotes that move to the front of root move ordering.
     static int iterativeNegamax(Position pos, int nnHint) {
         int bestMove = 0;
         for (int depth = 1; depth <= maxDepth; depth++) {
@@ -75,8 +80,6 @@ public class Search {
             bestMove = candidate;
             if (Math.abs(lastScore) > 90000) break;
         }
-        //System.out.println("info string depth: " + depth);
-        // Always return the best move found, never nnHint directly
         return bestMove;
     }
 
@@ -90,7 +93,7 @@ public class Search {
         for (int i = 0; i < moves.count; i++) {
             int score = -negamax(pos.makeMove(moves.moves[i]), depth - 1, -beta, -alpha);
             if (score > alpha) {
-                alpha = score;
+                alpha    = score;
                 bestMove = moves.moves[i];
                 lastScore = score;
             }
@@ -102,8 +105,8 @@ public class Search {
     static int negamax(Position pos, int depth, int alpha, int beta) {
         if (isTimeUp() || depth == 0) return evaluate(pos);
 
-        MoveList moves = pos.pseudoLegalMoves();
-        int legals = 0;
+        MoveList moves  = pos.pseudoLegalMoves();
+        int      legals = 0;
         orderMoves(pos, moves, 0, 0);
 
         for (int i = 0; i < moves.count; i++) {
@@ -119,38 +122,29 @@ public class Search {
     }
 
     // -------------------------------------------------------------------------
-    // Guess table — built during the opponent's turn using the NN policy head.
-    // Stores up to MAX_GUESSES (opponentMove, ourReply) pairs.
+    // Guess table
     // -------------------------------------------------------------------------
-
-    static final int MAX_GUESSES = 10;
 
     static class GuessTable {
 
-        private final int[]   opponentGuesses = new int[MAX_GUESSES];
-        private final int[]   replyMoves      = new int[MAX_GUESSES];
-        private volatile int  size            = 0;
-        private volatile boolean done         = false;
+        private final int[]          opponentGuesses = new int[Constants.MAX_GUESSES];
+        private final int[]          replyMoves      = new int[Constants.MAX_GUESSES];
+        private volatile int         size            = 0;
+        private volatile boolean     done            = false;
 
-        // Returns the pre-computed reply for opponentMove, or 0 if not found.
         int lookupReply(int opponentMove) {
             for (int i = 0; i < size; i++)
                 if (opponentGuesses[i] == opponentMove) return replyMoves[i];
             return 0;
         }
 
-        // Called by the background thread to stop generating new pairs.
-        void finish() { done = true; }
-
-        boolean isDone() { return done; }
+        void    finish()  { done = true; }
+        boolean isDone()  { return done; }
     }
 
-    // Background thread that populates a GuessTable while the opponent thinks.
-    // For each guessed opponent move the NN policy head provides a reply suggestion.
-    // Pairs are generated until MAX_GUESSES is reached or finish() is called.
     static class GuessingThread extends Thread {
 
-        private final Position    posAfterOurMove; // position after we played our move
+        private final Position     posAfterOurMove;
         private final NeuralEngine nn;
         private final GuessTable   table;
 
@@ -167,19 +161,16 @@ public class Search {
             MoveList opponentMoves = posAfterOurMove.legalMoves();
             if (opponentMoves.count == 0) { table.finish(); return; }
 
-            // Order opponent moves by their PST value so we guess plausible moves first.
-            // We evaluate from the opponent's point of view (negate evaluate).
             int[] scores = new int[opponentMoves.count];
             for (int i = 0; i < opponentMoves.count; i++)
                 scores[i] = -evaluate(posAfterOurMove.makeMove(opponentMoves.moves[i]));
             sortByScore(opponentMoves, scores);
 
             int generated = 0;
-            for (int i = 0; i < opponentMoves.count && !table.isDone() && generated < MAX_GUESSES; i++) {
-                int opponentMove = opponentMoves.moves[i];
+            for (int i = 0; i < opponentMoves.count && !table.isDone() && generated < Constants.MAX_GUESSES; i++) {
+                int      opponentMove  = opponentMoves.moves[i];
                 Position afterOpponent = posAfterOurMove.makeMove(opponentMove);
 
-                // Ask the NN for our best reply to this opponent move.
                 MoveList ourMoves = afterOpponent.legalMoves();
                 if (ourMoves.count == 0) continue;
 
@@ -187,7 +178,6 @@ public class Search {
                 try {
                     reply = nn.topPolicyMove(afterOpponent, ourMoves);
                 } catch (Exception e) {
-                    // NN unavailable for this position — skip this pair.
                     continue;
                 }
 
@@ -196,9 +186,13 @@ public class Search {
                     table.replyMoves[generated]      = reply;
                     table.size                       = generated + 1;
                     generated++;
-//                    System.out.println("info string guess[" + generated + "] opp="
-//                            + Move.toUci(opponentMove) + " reply=" + Move.toUci(reply));
                 }
+
+                // Yield after each inference so other threads (and the OS) get
+                // CPU time between calls. This is more effective than a fixed
+                // sleep because it hands control back immediately rather than
+                // blocking for an arbitrary minimum duration.
+                Thread.yield();
             }
 
             table.finish();
@@ -214,16 +208,15 @@ public class Search {
         }
     }
 
-    // Detects which legal move from 'before' produced 'after' by comparing board state.
     static int detectOpponentMove(Position before, Position after) {
         if (before == null || after == null) return 0;
         MoveList moves = before.legalMoves();
         for (int i = 0; i < moves.count; i++) {
             Position result = before.makeMove(moves.moves[i]);
-            if (result.allPieces  == after.allPieces
-                    && result.wp  == after.wp  && result.bp == after.bp
-                    && result.wn  == after.wn  && result.bn == after.bn
-                    && result.wr  == after.wr  && result.br == after.br
+            if (result.allPieces == after.allPieces
+                    && result.wp == after.wp && result.bp == after.bp
+                    && result.wn == after.wn && result.bn == after.bn
+                    && result.wr == after.wr && result.br == after.br
                     && result.whiteToMove == after.whiteToMove)
                 return moves.moves[i];
         }

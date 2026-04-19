@@ -9,8 +9,24 @@ public class NeuralEngine {
     private final String[]       indexToMoveUci;
 
     public NeuralEngine(String modelPath, Map<String, Integer> moveMap) throws OrtException {
-        this.env       = OrtEnvironment.getEnvironment();
-        this.session   = env.createSession(modelPath, new OrtSession.SessionOptions());
+        this.env = OrtEnvironment.getEnvironment();
+
+        // Cap ONNX Runtime's internal thread pools so that each inference uses
+        // at most half the logical cores. Without this, every session.run() call
+        // saturates every core for the full duration of the inference, which is
+        // what causes the 99% CPU spike when the guessing thread runs.
+        //
+        // intraOpNumThreads  — threads used inside a single operator (e.g. matrix multiply)
+        // interOpNumThreads  — threads used to run independent operators in parallel
+        //
+        // Setting both to half the available processors keeps each inference below
+        // ~50% total CPU while adding only a small latency penalty per call.
+        int halfCores = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+        OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
+        opts.setIntraOpNumThreads(halfCores);
+        opts.setInterOpNumThreads(halfCores);
+
+        this.session   = env.createSession(modelPath, opts);
         this.inputName = session.getInputNames().iterator().next();
 
         int maxIdx = moveMap.values().stream().mapToInt(Integer::intValue).max().orElse(0);
@@ -19,13 +35,11 @@ public class NeuralEngine {
             indexToMoveUci[e.getValue()] = e.getKey();
     }
 
-    // Builds [1,13,8,8] input tensor, runs both output heads, returns raw result.
-    // Caller must close the result.
     private OrtSession.Result runInference(Position pos, MoveList legal) throws OrtException {
         float[][][][] input = new float[1][13][8][8];
 
-        long[] bbs = {pos.wp,pos.wn,pos.wb,pos.wr,pos.wq,pos.wk,
-                      pos.bp,pos.bn,pos.bb,pos.br,pos.bq,pos.bk};
+        long[] bbs = {pos.wp, pos.wn, pos.wb, pos.wr, pos.wq, pos.wk,
+                      pos.bp, pos.bn, pos.bb, pos.br, pos.bq, pos.bk};
         for (int ch = 0; ch < 12; ch++) {
             long bb = bbs[ch];
             while (bb != 0) {
@@ -44,14 +58,12 @@ public class NeuralEngine {
         }
     }
 
-    // Returns value-head scalar in (-1,+1), current side's perspective.
     public double evaluatePosition(Position pos) throws OrtException {
         try (OrtSession.Result result = runInference(pos, pos.legalMoves())) {
             return ((float[][]) result.get(1).getValue())[0][0];
         }
     }
 
-    // Returns highest-logit legal move from the policy head; 0 if none match.
     public int topPolicyMove(Position pos, MoveList legal) throws OrtException {
         try (OrtSession.Result result = runInference(pos, legal)) {
             float[] logits = ((float[][]) result.get(0).getValue())[0];
