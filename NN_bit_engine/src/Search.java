@@ -185,6 +185,10 @@ public class Search {
                     table.opponentGuesses[generated] = opponentMove;
                     table.replyMoves[generated]      = reply;
                     table.size                       = generated + 1;
+
+                    System.out.println("info string guess[" + generated + "] opp="
+                            + Move.toUci(opponentMove) + " reply=" + Move.toUci(reply));
+
                     generated++;
                 }
 
@@ -210,13 +214,20 @@ public class Search {
         MoveList moves = before.legalMoves();
         for (int i = 0; i < moves.count; i++) {
             Position result = before.makeMove(moves.moves[i]);
-            if (result.allPieces == after.allPieces
-                    && result.wp == after.wp && result.bp == after.bp
-                    && result.wn == after.wn && result.bn == after.bn
-                    && result.wr == after.wr && result.br == after.br
-                    && result.whiteToMove == after.whiteToMove)
-                return moves.moves[i];
+            if (samePosition(result, after)) return moves.moves[i];
         }
         return 0;
+    }
+
+    static boolean samePosition(Position a, Position b) {
+        return a.wp == b.wp && a.wn == b.wn && a.wb == b.wb &&
+                a.wr == b.wr && a.wq == b.wq && a.wk == b.wk &&
+                a.bp == b.bp && a.bn == b.bn && a.bb == b.bb &&
+                a.br == b.br && a.bq == b.bq && a.bk == b.bk &&
+                a.whiteToMove == b.whiteToMove &&
+                a.whiteKingSideCastle == b.whiteKingSideCastle &&
+                a.whiteQueenSideCastle == b.whiteQueenSideCastle &&
+                a.blackKingSideCastle == b.blackKingSideCastle &&
+                a.blackQueenSideCastle == b.blackQueenSideCastle;
     }
 }
