@@ -2,8 +2,8 @@ public final class Constants {
 
     private Constants() {}
 
-    public static final String MODEL_PATH    = "models/chess_model_EVH_150200.onnx";
-    public static final String MOVE_MAP_PATH = "models/move_map_EVH_150200.ser";
+    public static final String MODEL_PATH    = "ChessGPT4-main/NN_bit_engine/models/chess_model_EVH_150200.onnx";
+    public static final String MOVE_MAP_PATH = "ChessGPT4-main/NN_bit_engine/models/move_map_EVH_150200.ser";
 
     public static final int MAX_GUESSES = 5;
 

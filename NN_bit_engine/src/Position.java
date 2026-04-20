@@ -104,7 +104,8 @@ public final class Position {
         int movIdx = -1;
         for (int i = 0; i < 12; i++) if ((next[i] & fBit) != 0) { movIdx = i; break; }
         if (movIdx == -1) {
-            return this; // protects against annoying crashes
+            throw new IllegalStateException("No moving piece found for move: " + move);
+            // protects against annoying crashes
         }
 
         nScore -= value(movIdx, from);

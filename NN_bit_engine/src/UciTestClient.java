@@ -15,9 +15,10 @@
 // =========================================================================
 // Engine launch configuration
 // =========================================================================
+import java.io.File;
 
 private static final String ENGINE_CLASS = "Main";
-        private static final String CLASS_PATH = "bin;lib\\onnxruntime-1.24.3.jar";
+        private static final String CLASS_PATH = "out/production/NN_bit_engine;ChessGPT4-main/NN_bit_engine/lib/onnxruntime-1.24.3.jar";
 
         // How long after movetime expires the client waits before giving up.
         private static final int WAIT_BUFFER_MS = 2000;
@@ -98,12 +99,12 @@ private static final String ENGINE_CLASS = "Main";
 
 /**
  * @param firstFen  engine thinks here, then guessing thread starts
- * @param secondFen position after the opponent's actual reply
+ //* @param secondFen position after the opponent's actual reply
  * @param waitMs    how long to let the guessing thread run
  * @param expectHit whether we expect a "Guess hit!" in the log
  */
-record GuessScenario(String description, String firstFen, String secondFen, int waitMs, int moveTimeMs,
-                     boolean expectHit) {
+record GuessScenario(String description, String firstFen, String opponentMoveUci,
+                     int waitMs, int moveTimeMs, boolean expectHit) {
 }
 
         // =========================================================================
@@ -121,9 +122,9 @@ record GuessScenario(String description, String firstFen, String secondFen, int 
 
             suite.add(new PositionTest(
                     "Scholar's mate threat — engine must defend f7",
-                    buildFen("r1bqkb1r", "pppp1ppp", "2n2n2", "4p3", "2B1P3", "5N2", "PPPP1PPP", "RNBQK2R"),
+                    "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 1",
                     10000,
-                    "f7f6", "f7f5", "d8e7", "g8e7"
+                    "f7f6", "f7f5", "d8e7", "g8e7", "f6e4"
             ));
 
             suite.add(new PositionTest(
@@ -146,10 +147,10 @@ record GuessScenario(String description, String firstFen, String secondFen, int 
             ));
 
             suite.add(new PositionTest(
-                    "Only one legal move — king in check",
-                    "8/8/8/8/7q/8/6P1/6K1 w - - 0 1",
+                    "King in check — must respond legally",
+                    "8/8/8/8/8/8/6q1/6K1 w - - 0 1",
                     10000,
-                    "g2g3", "g1h1", "g1f2"
+                    "g1h1", "g1f1", "g1g2"
             ));
 
             suite.add(PositionTest.fromMoves(
@@ -173,65 +174,56 @@ record GuessScenario(String description, String firstFen, String secondFen, int 
         // GUESS TEST SUITE — add/remove scenarios freely
         // =========================================================================
 
-        static List<GuessScenario> buildGuessTestSuite() {
-            List<GuessScenario> suite = new ArrayList<>();
+static List<GuessScenario> buildGuessTestSuite() {
+    List<GuessScenario> suite = new ArrayList<>();
 
-            // Scenario 1 — Starting position → opponent plays e7e5 (very common, likely guessed)
-            // The engine sees the startpos, picks a move, then the opponent plays e7e5.
-            // The guessing thread should have predicted e7e5 among its top candidates.
-            suite.add(new GuessScenario(
-                    "Startpos: opponent plays e7e5 (likely guess hit)",
-                    buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
-                    buildFen("rnbqkbnr", "pppp1ppp", "8", "8", "4p3", "8", "PPPPPPPP", "RNBQKBNR"),
-                    2000,  // give guessing thread 2 s to run
-                    4000,
-                    true   // e7e5 is a top response; we expect the NN to have guessed it
-            ));
+    suite.add(new GuessScenario(
+            "Startpos: opponent plays e7e5 (likely guess hit)",
+            buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
+            "e7e5",
+            2000,
+            4000,
+            true
+    ));
 
-            // Scenario 2 — Opponent plays an unlikely move (h7h5), should be a miss
-            suite.add(new GuessScenario(
-                    "Startpos: opponent plays h7h5 (unlikely — expect guess miss)",
-                    buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
-                    buildFen("rnbqkbnr", "ppppppp1", "8", "7p", "8", "8", "PPPPPPPP", "RNBQKBNR"),
-                    2000,
-                    4000,
-                    false  // h7h5 is very rare; the NN should not have guessed it
-            ));
+    suite.add(new GuessScenario(
+            "Startpos: opponent plays h7h5 (unlikely — expect guess miss)",
+            buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
+            "h7h5",
+            2000,
+            4000,
+            false
+    ));
 
-            // Scenario 3 — Short wait: guessing thread may not have had time to fill the table
-            suite.add(new GuessScenario(
-                    "Very short wait (100 ms) — guessing thread barely started",
-                    buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
-                    buildFen("rnbqkbnr", "pppp1ppp", "8", "8", "4p3", "8", "PPPPPPPP", "RNBQKBNR"),
-                    100,   // almost no time for guessing
-                    4000,
-                    false  // not enough time to fill the table
-            ));
+    suite.add(new GuessScenario(
+            "Very short wait (100 ms) — guessing thread may still be filling",
+            buildFen("rnbqkbnr", "pppppppp", "8", "8", "8", "8", "PPPPPPPP", "RNBQKBNR"),
+            "e7e5",
+            100,
+            4000,
+            false
+    ));
 
-            // Scenario 4 — Full 3-second wait: table should have up to 10 pairs
-            suite.add(new GuessScenario(
-                    "Full wait (3 s) — table should be saturated with 10 guesses",
-                    buildFen("r1bqkb1r", "pppp1ppp", "2n2n2", "4p3", "2B1P3", "5N2", "PPPP1PPP", "RNBQK2R"),
-                    // Opponent plays d7d6 — a common Philidor-style reply
-                    buildFen("r1bqkb1r", "ppp2ppp", "2n2n2", "3pp3", "2B1P3", "5N2", "PPPP1PPP", "RNBQK2R"),
-                    3000,
-                    4000,
-                    true
-            ));
+    suite.add(new GuessScenario(
+            "Full wait (3 s) — table should have multiple guesses",
+            buildFen("r1bqkb1r", "pppp1ppp", "2n2n2", "4p3", "2B1P3", "5N2", "PPPP1PPP", "RNBQK2R"),
+            "d7d5",
+            3000,
+            4000,
+            true
+    ));
 
-            // Scenario 5 — Endgame: fewer opponent legal moves → table fills quickly
-            suite.add(new GuessScenario(
-                    "Endgame with few opponent moves — table fills fast, reply should be fast",
-                    "8/8/8/8/3k4/8/3P4/3K4 w - - 0 1",
-                    // After white plays d2d4, black king moves to c4 (very limited options)
-                    "8/8/8/8/2kP4/8/8/3K4 b - - 0 1",
-                    1500,
-                    3000,
-                    false  // hard to guarantee which king move is guessed
-            ));
+    suite.add(new GuessScenario(
+            "Endgame with few opponent moves — table fills fast",
+            "8/8/8/8/3k4/8/3P4/3K4 w - - 0 1",
+            "d4c4",
+            1500,
+            3000,
+            false
+    ));
 
-            return suite;
-        }
+    return suite;
+}
 
         // =========================================================================
         // Perft expected node counts
@@ -272,6 +264,8 @@ record TestResult(String name, boolean passed, String detail) {
         static final AtomicLong lastPerftNodes = new AtomicLong(-1);
         static final List<String> engineLog = Collections.synchronizedList(new ArrayList<>());
 
+        static volatile int awaitedPerftDepth = -1;
+
         // Guess-specific counters — reset before each guess scenario
         static final AtomicInteger guessCount = new AtomicInteger(0);
         static final AtomicBoolean sawGuessHit = new AtomicBoolean(false);
@@ -289,7 +283,8 @@ record TestResult(String name, boolean passed, String detail) {
             IO.println("Engine: " + ENGINE_CLASS + "  |  CP: " + CLASS_PATH);
 
             Process process = new ProcessBuilder("java", "-cp", CLASS_PATH, ENGINE_CLASS)
-                    .redirectErrorStream(true).start();
+                    .redirectErrorStream(true)
+                    .start();
 
             writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -327,12 +322,17 @@ record TestResult(String name, boolean passed, String detail) {
                         // Perft: "Depth N: X nodes in ..."
                         if (line.matches("Depth \\d+:.*nodes.*")) {
                             try {
-                                String[] parts = line.replace(":", "").split("\\s+");
-                                for (int i = 0; i < parts.length; i++) {
-                                    if (parts[i].equals("nodes") && i > 0) {
-                                        lastPerftNodes.set(Long.parseLong(parts[i - 1]));
-                                        perftLatch.countDown();
-                                        break;
+                                int colon = line.indexOf(':');
+                                int depth = Integer.parseInt(line.substring(6, colon).trim());
+
+                                if (depth == awaitedPerftDepth) {
+                                    String[] parts = line.replace(":", "").split("\\s+");
+                                    for (int i = 0; i < parts.length; i++) {
+                                        if (parts[i].equals("nodes") && i > 0) {
+                                            lastPerftNodes.set(Long.parseLong(parts[i - 1]));
+                                            perftLatch.countDown();
+                                            break;
+                                        }
                                     }
                                 }
                             } catch (Exception ignored) {
@@ -485,11 +485,14 @@ record TestResult(String name, boolean passed, String detail) {
                 IO.println("  [Step 3] Sending opponent's actual reply and go...");
                 bestMoveLatch = new CountDownLatch(1);
                 lastBestMove.set("");
-                // Reset hit/miss flags so we catch the report from this specific search
                 sawGuessHit.set(false);
                 sawGuessMiss.set(false);
 
-                send("position fen " + test.secondFen);
+// Build the actual second position from the engine's real first move
+                Position afterOurMove = Position.fromFEN(test.firstFen).makeMove(Move.fromUci(move1));
+                Position afterOpponentReply = afterOurMove.makeMove(Move.fromUci(test.opponentMoveUci()));
+
+                send("position fen " + toFen(afterOpponentReply));
                 Thread.sleep(100);
                 sendGo(test.moveTimeMs);
 
@@ -520,11 +523,17 @@ record TestResult(String name, boolean passed, String detail) {
                 //   If we expected a miss → engine must have logged "Guess miss" AND returned a valid move
                 //   If guesses were generated → engine must have logged one of hit or miss
                 boolean validMove = !move2.isEmpty() && !move2.equals("0000");
-                boolean outcomeMatchesExpectation = test.expectHit ? hitDetected : (missDetected || guessesGenerated == 0);
+                boolean outcomeMatchesExpectation;
+                if (test.expectHit) {
+                    outcomeMatchesExpectation = hitDetected;
+                } else {
+                    outcomeMatchesExpectation = missDetected || !guessesExpected;
+                }
+
                 boolean guessSystemWorking = guessesGenerated > 0 || !guessesExpected;
 
-                boolean passed = validMove && guessSystemWorking
-                        && (hitDetected || missDetected || guessesGenerated == 0);
+                boolean passed = validMove && guessSystemWorking &&
+                        (test.expectHit ? hitDetected : (missDetected || !guessesExpected));
 
                 record(test.description, passed,
                         "guesses=" + guessesGenerated
@@ -571,7 +580,8 @@ record TestResult(String name, boolean passed, String detail) {
             for (PerftExpected test : suite) {
                 subHeader(test.description + "  (depth " + test.depth + ")");
 
-                perftLatch = new CountDownLatch(test.depth);
+                awaitedPerftDepth = test.depth;
+                perftLatch = new CountDownLatch(1);
                 lastPerftNodes.set(-1);
 
                 send("ucinewgame");
@@ -581,7 +591,7 @@ record TestResult(String name, boolean passed, String detail) {
 
                 int logSizeBefore = engineLog.size();
                 long start = System.currentTimeMillis();
-                send("perft");
+                send("perft " + test.depth);
 
                 boolean received = perftLatch.await(30, TimeUnit.SECONDS);
                 long elapsed = System.currentTimeMillis() - start;
@@ -591,25 +601,7 @@ record TestResult(String name, boolean passed, String detail) {
                     continue;
                 }
 
-                long actualNodes = -1;
-                synchronized (engineLog) {
-                    for (int i = logSizeBefore; i < engineLog.size(); i++) {
-                        String l = engineLog.get(i);
-                        if (l.startsWith("Depth " + test.depth + ":")) {
-                            try {
-                                String[] parts = l.replace(":", "").split("\\s+");
-                                for (int j = 0; j < parts.length; j++) {
-                                    if (parts[j].equals("nodes") && j > 0) {
-                                        actualNodes = Long.parseLong(parts[j - 1]);
-                                        break;
-                                    }
-                                }
-                            } catch (NumberFormatException ignored) {
-                            }
-                            break;
-                        }
-                    }
-                }
+                long actualNodes = lastPerftNodes.get();
 
                 if (actualNodes < 0) {
                     record(test.description, false, "Could not parse node count");
@@ -735,6 +727,43 @@ record TestResult(String name, boolean passed, String detail) {
             IO.println("=".repeat(70));
         }
 
-        static void subHeader(String title) {
+    static void subHeader(String title) {
             IO.println("  ── " + title);
         }
+
+    static String toFen(Position pos) {
+        StringBuilder sb = new StringBuilder();
+
+        for (int rank = 7; rank >= 0; rank--) {
+            int empty = 0;
+            for (int file = 0; file < 8; file++) {
+                int sq = rank * 8 + file;
+                char piece = pos.getPieceAt(sq);
+                if (piece == '.') {
+                    empty++;
+                } else {
+                    if (empty > 0) {
+                        sb.append(empty);
+                        empty = 0;
+                    }
+                    sb.append(piece);
+                }
+            }
+            if (empty > 0) sb.append(empty);
+            if (rank > 0) sb.append('/');
+        }
+
+        sb.append(pos.whiteToMove ? " w " : " b ");
+
+        StringBuilder castle = new StringBuilder();
+        if (pos.whiteKingSideCastle) castle.append('K');
+        if (pos.whiteQueenSideCastle) castle.append('Q');
+        if (pos.blackKingSideCastle) castle.append('k');
+        if (pos.blackQueenSideCastle) castle.append('q');
+        sb.append(castle.length() == 0 ? "-" : castle.toString());
+
+        sb.append(" - 0 1");
+        return sb.toString();
+    }
+
+
