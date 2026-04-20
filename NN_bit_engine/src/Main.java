@@ -76,7 +76,7 @@ void main() throws Exception {
 
             // 3. Forced Variation on Repetition
             if (isRepeatingPattern() && finalMove != 0) {
-//                System.out.println("info string Repetition detected, forcing variation.");
+                System.out.println("info string Repetition detected, forcing variation.");
                 // Re-run a very short search without the hint to find an alternative
                 Search.startTime = System.currentTimeMillis();
                 Search.timeLimit = 500;
@@ -130,7 +130,7 @@ private static void stopGuessing(Search.GuessingThread thread, Search.GuessTable
 // nnHint (may be 0) is forwarded to both the negamax and NN threads.
 private static int freshSearch(Position pos, int nnHint) {
     Search.startTime = System.currentTimeMillis();
-    Search.timeLimit = (long) (Search.moveTimeMs * 0.85);
+    Search.timeLimit = (long) (Search.moveTimeMs * 0.9);
     return Search.iterativeNegamax(pos, nnHint);
 }
 
