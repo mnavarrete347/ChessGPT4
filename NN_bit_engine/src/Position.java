@@ -15,6 +15,10 @@ public final class Position {
     // Incremental evaluation (white-relative)
     public int score;
 
+    // Cached cheap-search helpers
+    public final int material;
+    public final long key;
+
     public Position(long[] pieces, boolean whiteToMove,
                     boolean wK, boolean wQ, boolean bK, boolean bQ) {
         this.wp = pieces[0]; this.wn = pieces[1]; this.wb = pieces[2];
@@ -31,6 +35,9 @@ public final class Position {
         this.whiteQueenSideCastle = wQ;
         this.blackKingSideCastle  = bK;
         this.blackQueenSideCastle = bQ;
+
+        this.material = computeMaterial();
+        this.key      = computeKey();
     }
 
     public static Position startPos() {
@@ -102,10 +109,14 @@ public final class Position {
 
         // Identify moving piece
         int movIdx = -1;
-        for (int i = 0; i < 12; i++) if ((next[i] & fBit) != 0) { movIdx = i; break; }
+        for (int i = 0; i < 12; i++) {
+            if ((next[i] & fBit) != 0) {
+                movIdx = i;
+                break;
+            }
+        }
         if (movIdx == -1) {
             throw new IllegalStateException("No moving piece found for move: " + move);
-            // protects against annoying crashes
         }
 
         nScore -= value(movIdx, from);
@@ -137,8 +148,6 @@ public final class Position {
         }
 
         // Update castling rights
-        // Bug fix: original used movIdx==5 instead of checking from==4 for the king square,
-        // which incorrectly revoked rights when a non-king piece on the king square moved.
         boolean wK = whiteKingSideCastle, wQ = whiteQueenSideCastle;
         boolean bK = blackKingSideCastle, bQ = blackQueenSideCastle;
         if (from == 4  || to == 4)  { wK = false; wQ = false; }
@@ -168,7 +177,7 @@ public final class Position {
         }
 
         Position result = new Position(next, !whiteToMove, wK, wQ, bK, bQ);
-        result.score  = nScore;
+        result.score = nScore;
         return result;
     }
 
@@ -177,8 +186,12 @@ public final class Position {
     // -------------------------------------------------------------------------
 
     public MoveList pseudoLegalMoves() {
-        MoveList list = new MoveList();
-        boolean  w    = whiteToMove;
+        return pseudoLegalMoves(new MoveList());
+    }
+
+    public MoveList pseudoLegalMoves(MoveList list) {
+        list.clear();
+        boolean w = whiteToMove;
         genPawn(list, w);
         genKnight(list, w);
         genSliders(list, w, Constants.BISHOP_OFFSETS, w ? wb : bb);
@@ -189,8 +202,12 @@ public final class Position {
     }
 
     public MoveList legalMoves() {
-        MoveList pseudo = pseudoLegalMoves();
-        MoveList legal  = new MoveList();
+        return legalMoves(new MoveList(), new MoveList());
+    }
+
+    public MoveList legalMoves(MoveList pseudo, MoveList legal) {
+        pseudoLegalMoves(pseudo);
+        legal.clear();
         for (int i = 0; i < pseudo.count; i++) {
             Position next = makeMove(pseudo.moves[i]);
             if (!next.inCheck(!next.whiteToMove)) legal.add(pseudo.moves[i]);
@@ -239,14 +256,12 @@ public final class Position {
 
     private void genKing(MoveList list, boolean w) {
         long kingBoard = w ? wk : bk;
-        // If the king is missing, do not attempt to generate moves
         if (kingBoard == 0) return;
 
         int  from     = Long.numberOfTrailingZeros(kingBoard);
         long friendly = w ? whitePieces : blackPieces;
 
         serializeMoves(list, from, Constants.KING_ATTACKS[from] & ~friendly);
-        //  Castling logic
         if (w) {
             if (whiteKingSideCastle  && (allPieces & 0x60L) == 0
                     && !isSquareAttacked(4, false) && !isSquareAttacked(5, false) && !isSquareAttacked(6, false))
@@ -340,8 +355,8 @@ public final class Position {
                 int nxt = cur + offset;
                 if (nxt < 0 || nxt >= 64 || isWrap(cur, nxt, offset)) break;
                 long b = 1L << nxt;
-                if ((straight   & b) != 0) return true;
-                if ((allPieces  & b) != 0) break;
+                if ((straight & b) != 0) return true;
+                if ((allPieces & b) != 0) break;
                 cur = nxt;
             }
         }
@@ -351,7 +366,7 @@ public final class Position {
                 int nxt = cur + offset;
                 if (nxt < 0 || nxt >= 64 || isWrap(cur, nxt, offset)) break;
                 long b = 1L << nxt;
-                if ((diagonal  & b) != 0) return true;
+                if ((diagonal & b) != 0) return true;
                 if ((allPieces & b) != 0) break;
                 cur = nxt;
             }
@@ -403,11 +418,47 @@ public final class Position {
         };
     }
 
-    public int totalMaterial() {
-        return  Long.bitCount(wp | bp) * Constants.PAWN +
+    private int computeMaterial() {
+        return Long.bitCount(wp | bp) * Constants.PAWN +
                 Long.bitCount(wn | bn) * Constants.KNIGHT +
                 Long.bitCount(wb | bb) * Constants.BISHOP +
                 Long.bitCount(wr | br) * Constants.ROOK +
                 Long.bitCount(wq | bq) * Constants.QUEEN;
+    }
+
+    public int totalMaterial() {
+        return material;
+    }
+
+    private long computeKey() {
+        long h = 0x9E3779B97F4A7C15L;
+        h = mix(h, wp);
+        h = mix(h, wn);
+        h = mix(h, wb);
+        h = mix(h, wr);
+        h = mix(h, wq);
+        h = mix(h, wk);
+        h = mix(h, bp);
+        h = mix(h, bn);
+        h = mix(h, bb);
+        h = mix(h, br);
+        h = mix(h, bq);
+        h = mix(h, bk);
+        h = mix(h, whiteToMove ? 1L : 0L);
+        h = mix(h, whiteKingSideCastle ? 2L : 0L);
+        h = mix(h, whiteQueenSideCastle ? 4L : 0L);
+        h = mix(h, blackKingSideCastle ? 8L : 0L);
+        h = mix(h, blackQueenSideCastle ? 16L : 0L);
+        return h;
+    }
+
+    private static long mix(long h, long x) {
+        h ^= x + 0x9E3779B97F4A7C15L + (h << 6) + (h >>> 2);
+        h ^= (h >>> 33);
+        h *= 0xff51afd7ed558ccdL;
+        h ^= (h >>> 33);
+        h *= 0xc4ceb9fe1a85ec53L;
+        h ^= (h >>> 33);
+        return h;
     }
 }

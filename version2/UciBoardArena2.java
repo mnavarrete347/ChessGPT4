@@ -467,7 +467,7 @@ public class UciBoardArena2 extends JFrame {
                 String line;
                 while ((line = stdout.readLine()) != null) {
                     outLines.offer(line);
-                    //logger.log(line);
+                    logger.log(line);
                 }
             } catch (IOException ignored) {
             }

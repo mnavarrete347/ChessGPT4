@@ -1,3 +1,5 @@
+import static java.lang.Thread.sleep;
+
 /**
 * UciTestClient — comprehensive test harness for the chess engine.
 * HOW TO COMPILE AND RUN
@@ -285,91 +287,92 @@
     header("UCI TEST CLIENT");
     IO.println("Engine: " + ENGINE_CLASS + "  |  CP: " + CLASS_PATH);
 
-    Process process = new ProcessBuilder("java", "-cp", CLASS_PATH, ENGINE_CLASS)
-            .redirectErrorStream(true)
-            .start();
+        try (Process process = new ProcessBuilder("java", "-cp", CLASS_PATH, ENGINE_CLASS)
+                .redirectErrorStream(true)
+                .start()) {
 
-    writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
-    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
-    // Reader thread — monitors all engine output and updates shared state
-    Thread readerThread = new Thread(() -> {
-        try {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                engineLog.add(line);
-                IO.println("  ENGINE> " + line);
+            // Reader thread — monitors all engine output and updates shared state
+            Thread readerThread = new Thread(() -> {
+                try {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        engineLog.add(line);
+                        IO.println("  ENGINE> " + line);
 
-                // bestmove
-                if (line.startsWith("bestmove")) {
-                    String[] parts = line.split("\\s+");
-                    lastBestMove.set(parts.length > 1 ? parts[1] : "");
-                    bestMoveTimestamp.set(System.currentTimeMillis());
-                    bestMoveLatch.countDown();
-                }
+                        // bestmove
+                        if (line.startsWith("bestmove")) {
+                            String[] parts = line.split("\\s+");
+                            lastBestMove.set(parts.length > 1 ? parts[1] : "");
+                            bestMoveTimestamp.set(System.currentTimeMillis());
+                            bestMoveLatch.countDown();
+                        }
 
-                // Guess-table output from GuessingThread
-                // Engine logs:  info string guess[N] opp=<move> reply=<move>
-                if (line.contains("guess[")) {
-                    guessCount.incrementAndGet();
-                }
-                // Engine logs:  info string Guess hit! opp=<move> hint=<move>
-                if (line.contains("Guess hit")) {
-                    sawGuessHit.set(true);
-                }
-                // Engine logs:  info string Guess miss for opp=<move>
-                if (line.contains("Guess miss")) {
-                    sawGuessMiss.set(true);
-                }
+                        // Guess-table output from GuessingThread
+                        // Engine logs:  info string guess[N] opp=<move> reply=<move>
+                        if (line.contains("guess[")) {
+                            guessCount.incrementAndGet();
+                        }
+                        // Engine logs:  info string Guess hit! opp=<move> hint=<move>
+                        if (line.contains("Guess hit")) {
+                            sawGuessHit.set(true);
+                        }
+                        // Engine logs:  info string Guess miss for opp=<move>
+                        if (line.contains("Guess miss")) {
+                            sawGuessMiss.set(true);
+                        }
 
-                // Perft: "Depth N: X nodes in ..."
-                if (line.matches("Depth \\d+:.*nodes.*")) {
-                    try {
-                        int colon = line.indexOf(':');
-                        int depth = Integer.parseInt(line.substring(6, colon).trim());
+                        // Perft: "Depth N: X nodes in ..."
+                        if (line.matches("Depth \\d+:.*nodes.*")) {
+                            try {
+                                int colon = line.indexOf(':');
+                                int depth = Integer.parseInt(line.substring(6, colon).trim());
 
-                        if (depth == awaitedPerftDepth) {
-                            String[] parts = line.replace(":", "").split("\\s+");
-                            for (int i = 0; i < parts.length; i++) {
-                                if (parts[i].equals("nodes") && i > 0) {
-                                    lastPerftNodes.set(Long.parseLong(parts[i - 1]));
-                                    perftLatch.countDown();
-                                    break;
+                                if (depth == awaitedPerftDepth) {
+                                    String[] parts = line.replace(":", "").split("\\s+");
+                                    for (int i = 0; i < parts.length; i++) {
+                                        if (parts[i].equals("nodes") && i > 0) {
+                                            lastPerftNodes.set(Long.parseLong(parts[i - 1]));
+                                            perftLatch.countDown();
+                                            break;
+                                        }
+                                    }
                                 }
+                            } catch (Exception ignored) {
                             }
                         }
-                    } catch (Exception ignored) {
                     }
+                } catch (IOException e) {
+                    IO.println("  [reader ended: " + e.getMessage() + "]");
                 }
-            }
-        } catch (IOException e) {
-            IO.println("  [reader ended: " + e.getMessage() + "]");
+            }, "engine-reader");
+            readerThread.setDaemon(true);
+            readerThread.start();
+
+            // Handshake
+            header("HANDSHAKE");
+            send("uci");
+            send("isready");
+            sleep(500);
+            send("ucinewgame");
+            sleep(300);
+
+            // Run suites
+            runPositionTests(buildTestSuite());
+            runGuessTests(buildGuessTestSuite());
+            runPerftTests(buildPerftSuite());
+            runStressTest();
+
+            // Shutdown
+            header("SHUTDOWN");
+            send("quit");
+            sleep(500);
+            process.destroy();
         }
-    }, "engine-reader");
-    readerThread.setDaemon(true);
-    readerThread.start();
 
-    // Handshake
-    header("HANDSHAKE");
-    send("uci");
-    send("isready");
-    Thread.sleep(500);
-    send("ucinewgame");
-    Thread.sleep(300);
-
-    // Run suites
-    runPositionTests(buildTestSuite());
-    runGuessTests(buildGuessTestSuite());
-    runPerftTests(buildPerftSuite());
-    runStressTest();
-
-    // Shutdown
-    header("SHUTDOWN");
-    send("quit");
-    Thread.sleep(500);
-    process.destroy();
-
-    printSummary();
+        printSummary();
     }
 
     // =========================================================================
@@ -389,9 +392,9 @@
         goTimestamp.set(0);
 
         send("ucinewgame");
-        Thread.sleep(100);
+        sleep(100);
         send(test.positionCommand());
-        Thread.sleep(100);
+        sleep(100);
         sendGo(test.moveTimeMs);
 
         boolean responded = bestMoveLatch.await(test.moveTimeMs + WAIT_BUFFER_MS, TimeUnit.MILLISECONDS);
@@ -418,7 +421,7 @@
                             + (test.expectedMoves.length > 0 ? " [validated]" : ""));
         }
 
-        Thread.sleep(BETWEEN_TESTS_MS);
+        sleep(BETWEEN_TESTS_MS);
     }
     }
 
@@ -449,12 +452,12 @@
         int engineLogSizeBefore = engineLog.size();
 
         send("ucinewgame");
-        Thread.sleep(100);
+        sleep(100);
 
         // ── Step 1: send first position and let engine search ────────────
         IO.println("  [Step 1] Sending first position and go...");
         send("position fen " + test.firstFen);
-        Thread.sleep(100);
+        sleep(100);
         sendGo(test.moveTimeMs);
 
         boolean step1ok = bestMoveLatch.await(test.moveTimeMs + WAIT_BUFFER_MS, TimeUnit.MILLISECONDS);
@@ -469,7 +472,7 @@
 
         // ── Step 2: wait for the guessing thread to generate pairs ───────
         System.out.printf("  [Step 2] Waiting %d ms for guessing thread to run...%n", test.waitMs);
-        Thread.sleep(test.waitMs);
+        sleep(test.waitMs);
 
         int guessesGenerated = guessCount.get();
         System.out.printf("  [Step 2] Guess pairs generated so far: %d%n", guessesGenerated);
@@ -496,7 +499,7 @@
         Position afterOpponentReply = afterOurMove.makeMove(Move.fromUci(test.opponentMoveUci()));
 
         send("position fen " + toFen(afterOpponentReply));
-        Thread.sleep(100);
+        sleep(100);
         sendGo(test.moveTimeMs);
 
         boolean step3ok = bestMoveLatch.await(test.moveTimeMs + WAIT_BUFFER_MS, TimeUnit.MILLISECONDS);
@@ -547,14 +550,14 @@
                         + " move=" + move2
                         + " elapsed=" + elapsed2 + "ms");
 
-        Thread.sleep(BETWEEN_TESTS_MS);
+        sleep(BETWEEN_TESTS_MS);
     }
     }
 
     // Prints all guess[N] lines from the engine log since logStartIndex.
     private static void printGuessTable(List<String> log, int logStartIndex) {
     List<String> guessLines = new ArrayList<>();
-    synchronized (log) {
+    synchronized (Collections.unmodifiableList(log)) {
         for (int i = logStartIndex; i < log.size(); i++) {
             String l = log.get(i);
             if (l.contains("guess[")) guessLines.add(l);
@@ -588,11 +591,10 @@
         lastPerftNodes.set(-1);
 
         send("ucinewgame");
-        Thread.sleep(100);
+        sleep(100);
         send("position fen " + test.fen);
-        Thread.sleep(100);
+        sleep(100);
 
-        int logSizeBefore = engineLog.size();
         long start = System.currentTimeMillis();
         send("perft " + test.depth);
 
@@ -618,7 +620,7 @@
                 correct ? "node count matches" : "MISMATCH: got " + actualNodes
                                                  + " expected " + test.expectedNodes);
 
-        Thread.sleep(BETWEEN_TESTS_MS);
+        sleep(BETWEEN_TESTS_MS);
     }
     }
 
@@ -649,9 +651,9 @@
         lastBestMove.set("");
 
         send("ucinewgame");
-        Thread.sleep(100);
+        sleep(100);
         send("position fen " + fens[i]);
-        Thread.sleep(50);
+        sleep(50);
         sendGo(moveTime);
 
         boolean ok = bestMoveLatch.await(moveTime + WAIT_BUFFER_MS, TimeUnit.MILLISECONDS);
@@ -666,7 +668,7 @@
             System.out.printf("  [%d/%d] OK    move=%-8s  time=%d ms%n", i + 1, fens.length, move, elapsed);
             passed++;
         }
-        Thread.sleep(200);
+        sleep(200);
     }
 
     System.out.printf("%n  Stress: %d/%d passed, avg response %.0f ms%n",
@@ -763,7 +765,7 @@
     if (pos.whiteQueenSideCastle) castle.append('Q');
     if (pos.blackKingSideCastle) castle.append('k');
     if (pos.blackQueenSideCastle) castle.append('q');
-    sb.append(castle.length() == 0 ? "-" : castle.toString());
+    sb.append(castle.isEmpty() ? "-" : castle.toString());
 
     sb.append(" - 0 1");
     return sb.toString();
