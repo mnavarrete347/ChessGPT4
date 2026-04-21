@@ -53,12 +53,6 @@ public class NeuralEngine {
         }
     }
 
-    public double evaluatePosition(Position pos) throws OrtException {
-        try (OrtSession.Result result = runInference(pos, pos.legalMoves())) {
-            return ((float[][]) result.get(1).getValue())[0][0];
-        }
-    }
-
     public int topPolicyMove(Position pos, MoveList legal) throws OrtException {
         int[] top = topPolicyMoves(pos, legal, 1);
         return top.length == 0 ? 0 : top[0];
