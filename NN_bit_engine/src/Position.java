@@ -15,29 +15,6 @@ public final class Position {
     // Incremental evaluation (white-relative)
     public int score;
 
-    // Cached cheap-search helpers
-    public int material;
-    public final long key;
-
-    // Z-flags for incremental key update
-    private static final long[][] Z_PIECE = new long[12][64];
-    private static final long[] Z_CASTLING = new long[4]; // WK, WQ, BK, BQ
-    private static final long Z_SIDE;
-
-    static {
-        java.util.Random rng = new java.util.Random(4318L);
-
-        for (int p = 0; p < 12; p++) {
-            for (int sq = 0; sq < 64; sq++) {
-                Z_PIECE[p][sq] = rng.nextLong();
-            }
-        }
-        for (int i = 0; i < 4; i++) {
-            Z_CASTLING[i] = rng.nextLong();
-        }
-        Z_SIDE = rng.nextLong();
-    }
-
     public Position(long[] pieces, boolean whiteToMove,
                     boolean wK, boolean wQ, boolean bK, boolean bQ) {
         this.wp = pieces[0]; this.wn = pieces[1]; this.wb = pieces[2];
@@ -54,31 +31,6 @@ public final class Position {
         this.whiteQueenSideCastle = wQ;
         this.blackKingSideCastle  = bK;
         this.blackQueenSideCastle = bQ;
-
-        this.material = computeMaterial();
-        this.key      = computeKey();
-    }
-
-    private Position(long[] pieces, boolean whiteToMove,
-                     boolean wK, boolean wQ, boolean bK, boolean bQ,
-                     int material, long key) {
-        this.wp = pieces[0]; this.wn = pieces[1]; this.wb = pieces[2];
-        this.wr = pieces[3]; this.wq = pieces[4]; this.wk = pieces[5];
-        this.bp = pieces[6]; this.bn = pieces[7]; this.bb = pieces[8];
-        this.br = pieces[9]; this.bq = pieces[10]; this.bk = pieces[11];
-
-        this.whitePieces = wp | wn | wb | wr | wq | wk;
-        this.blackPieces = bp | bn | bb | br | bq | bk;
-        this.allPieces   = whitePieces | blackPieces;
-
-        this.whiteToMove          = whiteToMove;
-        this.whiteKingSideCastle  = wK;
-        this.whiteQueenSideCastle = wQ;
-        this.blackKingSideCastle  = bK;
-        this.blackQueenSideCastle = bQ;
-
-        this.material = material;
-        this.key      = key;
     }
 
     public static Position startPos() {
@@ -133,7 +85,7 @@ public final class Position {
             case 2 -> Constants.BISHOP + Constants.BISHOP_PST[t];
             case 3 -> Constants.ROOK   + Constants.ROOK_PST[t];
             case 4 -> Constants.QUEEN  + Constants.QUEEN_PST[t];
-            default-> Constants.KING   + Constants.KING_PST[t];
+            default -> Constants.KING  + Constants.KING_PST[t];
         };
         return w ? s : -s;
     }
@@ -144,22 +96,10 @@ public final class Position {
 
     public Position makeMove(int move) {
         long[] next = {wp, wn, wb, wr, wq, wk, bp, bn, bb, br, bq, bk};
-        int from  = Move.getFrom(move);
-        int to    = Move.getTo(move);
-        int promo = Move.getPromo(move);
+        int from  = Move.getFrom(move), to = Move.getTo(move), promo = Move.getPromo(move);
+        long fBit = 1L << from, tBit = 1L << to;
+        int nScore = score;
 
-        long fBit = 1L << from;
-        long tBit = 1L << to;
-
-        int  nScore    = score;
-        int  nMaterial = material;
-        long nKey      = key;
-
-        // Save old castling rights so we can update the hash if they change
-        boolean oldWK = whiteKingSideCastle, oldWQ = whiteQueenSideCastle;
-        boolean oldBK = blackKingSideCastle, oldBQ = blackQueenSideCastle;
-
-        // Identify moving piece
         int movIdx = -1;
         for (int i = 0; i < 12; i++) {
             if ((next[i] & fBit) != 0) {
@@ -171,65 +111,33 @@ public final class Position {
             throw new IllegalStateException("No moving piece found for move: " + move);
         }
 
-        // Remove moving piece from source square
         nScore -= value(movIdx, from);
-        nKey   ^= Z_PIECE[movIdx][from];
 
-        // Capture
         if ((allPieces & tBit) != 0) {
             for (int i = 0; i < 12; i++) {
                 if ((next[i] & tBit) != 0) {
                     nScore -= value(i, to);
-                    nKey   ^= Z_PIECE[i][to];
-
-                    switch (i % 6) {
-                        case 0 -> nMaterial -= Constants.PAWN;
-                        case 1 -> nMaterial -= Constants.KNIGHT;
-                        case 2 -> nMaterial -= Constants.BISHOP;
-                        case 3 -> nMaterial -= Constants.ROOK;
-                        case 4 -> nMaterial -= Constants.QUEEN;
-                        default -> { /* king not counted in material */ }
-                    }
-
                     next[i] ^= tBit;
                     break;
                 }
             }
         }
 
-        // Move piece
         next[movIdx] ^= fBit | tBit;
         nScore += value(movIdx, to);
-        nKey   ^= Z_PIECE[movIdx][to];
 
-        // Promotion
         if (promo != 0 && (movIdx == 0 || movIdx == 6)) {
-            // Remove pawn from promoted square
             nScore -= value(movIdx, to);
-            nKey   ^= Z_PIECE[movIdx][to];
             next[movIdx] ^= tBit;
-
             int pIdx = whiteToMove
                     ? (promo == 1 ? 4 : promo == 2 ? 3 : promo == 3 ? 2 : 1)
                     : (promo == 1 ? 10 : promo == 2 ? 9 : promo == 3 ? 8 : 7);
-
             next[pIdx] |= tBit;
             nScore += value(pIdx, to);
-            nKey   ^= Z_PIECE[pIdx][to];
-
-            nMaterial -= Constants.PAWN;
-            nMaterial += switch (promo) {
-                case 1 -> Constants.QUEEN;
-                case 2 -> Constants.ROOK;
-                case 3 -> Constants.BISHOP;
-                default -> Constants.KNIGHT;
-            };
         }
 
-        // Update castling rights
         boolean wK = whiteKingSideCastle, wQ = whiteQueenSideCastle;
         boolean bK = blackKingSideCastle, bQ = blackQueenSideCastle;
-
         if (from == 4  || to == 4)  { wK = false; wQ = false; }
         if (from == 60 || to == 60) { bK = false; bQ = false; }
         if (from == 0  || to == 0)  wQ = false;
@@ -237,44 +145,27 @@ public final class Position {
         if (from == 56 || to == 56) bQ = false;
         if (from == 63 || to == 63) bK = false;
 
-        // Update castling-right hash
-        if (oldWK != wK) nKey ^= Z_CASTLING[0];
-        if (oldWQ != wQ) nKey ^= Z_CASTLING[1];
-        if (oldBK != bK) nKey ^= Z_CASTLING[2];
-        if (oldBQ != bQ) nKey ^= Z_CASTLING[3];
-
-        // Castling rook moves
+        // Castling is encoded as a king move; the rook move is applied here.
         if (movIdx == 5 && from == 4) {
             if (to == 6) {
                 nScore += value(3, 5) - value(3, 7);
                 next[3] ^= (1L << 7) | (1L << 5);
-                nKey   ^= Z_PIECE[3][7];
-                nKey   ^= Z_PIECE[3][5];
             } else if (to == 2) {
                 nScore += value(3, 3) - value(3, 0);
-                next[3] ^= (1L << 0) | (1L << 3);
-                nKey   ^= Z_PIECE[3][0];
-                nKey   ^= Z_PIECE[3][3];
+                next[3] ^= 1L | (1L << 3);
             }
         } else if (movIdx == 11 && from == 60) {
             if (to == 62) {
                 nScore += value(9, 61) - value(9, 63);
                 next[9] ^= (1L << 63) | (1L << 61);
-                nKey   ^= Z_PIECE[9][63];
-                nKey   ^= Z_PIECE[9][61];
             } else if (to == 58) {
                 nScore += value(9, 59) - value(9, 56);
                 next[9] ^= (1L << 56) | (1L << 59);
-                nKey   ^= Z_PIECE[9][56];
-                nKey   ^= Z_PIECE[9][59];
             }
         }
 
-        // Flip side to move
-        nKey ^= Z_SIDE;
-
-        Position result = new Position(next, !whiteToMove, wK, wQ, bK, bQ, nMaterial, nKey);
-        result.score = nScore;
+        Position result = new Position(next, !whiteToMove, wK, wQ, bK, bQ);
+        result.score  = nScore;
         return result;
     }
 
@@ -282,8 +173,8 @@ public final class Position {
     // Move generation
     // -------------------------------------------------------------------------
 
-    public MoveList pseudoLegalMoves(MoveList list) {
-        list.clear();
+    public MoveList pseudoLegalMoves() {
+        MoveList list = new MoveList();
         boolean w = whiteToMove;
         genPawn(list, w);
         genKnight(list, w);
@@ -294,9 +185,11 @@ public final class Position {
         return list;
     }
 
-    public MoveList legalMoves(MoveList pseudo, MoveList legal) {
-        pseudoLegalMoves(pseudo);
-        legal.clear();
+    // Pseudo-legal moves ignore king safety; legalMoves filters out moves
+    // that leave the side to move in check.
+    public MoveList legalMoves() {
+        MoveList pseudo = pseudoLegalMoves();
+        MoveList legal  = new MoveList();
         for (int i = 0; i < pseudo.count; i++) {
             Position next = makeMove(pseudo.moves[i]);
             if (!next.inCheck(!next.whiteToMove)) legal.add(pseudo.moves[i]);
@@ -309,7 +202,6 @@ public final class Position {
         long empty = ~allPieces;
 
         if (w) {
-            // move up by shifting left by 8
             long single = (wp << 8) & empty;
             addPawnMoves(list, single & ~Constants.RANK_8, 8, false);
             addPawnMoves(list, single &  Constants.RANK_8, 8, true);
@@ -321,7 +213,6 @@ public final class Position {
             addPawnMoves(list, cR & ~Constants.RANK_8, 9, false);
             addPawnMoves(list, cR &  Constants.RANK_8, 9, true);
         } else {
-            // move down by shifting right by 8
             long single = (bp >> 8) & empty;
             addPawnMoves(list, single & ~Constants.RANK_1, -8, false);
             addPawnMoves(list, single &  Constants.RANK_1, -8, true);
@@ -349,32 +240,30 @@ public final class Position {
         long kingBoard = w ? wk : bk;
         if (kingBoard == 0) return;
 
-        int  from     = Long.numberOfTrailingZeros(kingBoard);
+        int from = Long.numberOfTrailingZeros(kingBoard);
         long friendly = w ? whitePieces : blackPieces;
 
         serializeMoves(list, from, Constants.KING_ATTACKS[from] & ~friendly);
+
+        // Castling requires empty path squares and safe transit squares.
         if (w) {
-            if (whiteKingSideCastle  && (allPieces & 0x60L) == 0
-                    && !isSquareAttacked(4, false)
-                    && !isSquareAttacked(5, false)
-                    && !isSquareAttacked(6, false))
+            if (whiteKingSideCastle && (allPieces & 0x60L) == 0
+                    && !isSquareAttacked(4, false) && !isSquareAttacked(5, false) && !isSquareAttacked(6, false)) {
                 list.add(Move.create(4, 6, 0));
+            }
             if (whiteQueenSideCastle && (allPieces & 0x0EL) == 0
-                    && !isSquareAttacked(4, false)
-                    && !isSquareAttacked(3, false)
-                    && !isSquareAttacked(2, false))
+                    && !isSquareAttacked(4, false) && !isSquareAttacked(3, false) && !isSquareAttacked(2, false)) {
                 list.add(Move.create(4, 2, 0));
+            }
         } else {
-            if (blackKingSideCastle  && (allPieces & 0x6000000000000000L) == 0
-                    && !isSquareAttacked(60, true)
-                    && !isSquareAttacked(61, true)
-                    && !isSquareAttacked(62, true))
+            if (blackKingSideCastle && (allPieces & 0x6000000000000000L) == 0
+                    && !isSquareAttacked(60, true) && !isSquareAttacked(61, true) && !isSquareAttacked(62, true)) {
                 list.add(Move.create(60, 62, 0));
+            }
             if (blackQueenSideCastle && (allPieces & 0x0E00000000000000L) == 0
-                    && !isSquareAttacked(60, true)
-                    && !isSquareAttacked(59, true)
-                    && !isSquareAttacked(58, true))
+                    && !isSquareAttacked(60, true) && !isSquareAttacked(59, true) && !isSquareAttacked(58, true)) {
                 list.add(Move.create(60, 58, 0));
+            }
         }
     }
 
@@ -473,6 +362,8 @@ public final class Position {
         return false;
     }
 
+    // Prevent slider rays from wrapping around the board edge when moving
+    // horizontally or diagonally using square-index arithmetic.
     private boolean isWrap(int from, int to, int offset) {
         int diff = Math.abs((to & 7) - (from & 7));
         return Math.abs(offset) == 8 ? diff != 0 : diff != 1;
@@ -517,36 +408,11 @@ public final class Position {
         };
     }
 
-    private int computeMaterial() {
-        return Long.bitCount(wp | bp) * Constants.PAWN +
-                Long.bitCount(wn | bn) * Constants.KNIGHT +
-                Long.bitCount(wb | bb) * Constants.BISHOP +
-                Long.bitCount(wr | br) * Constants.ROOK +
-                Long.bitCount(wq | bq) * Constants.QUEEN;
-    }
-
     public int totalMaterial() {
-        return material;
-    }
-
-    private long computeKey() {
-        long h = 0L;
-
-        for (int i = 0; i < 12; i++) {
-            long bb = bbByIndex(i);
-            while (bb != 0) {
-                int sq = Long.numberOfTrailingZeros(bb);
-                h ^= Z_PIECE[i][sq];
-                bb &= bb - 1;
-            }
-        }
-
-        if (!whiteToMove) h ^= Z_SIDE;
-        if (whiteKingSideCastle)  h ^= Z_CASTLING[0];
-        if (whiteQueenSideCastle) h ^= Z_CASTLING[1];
-        if (blackKingSideCastle)  h ^= Z_CASTLING[2];
-        if (blackQueenSideCastle) h ^= Z_CASTLING[3];
-
-        return h;
+        return Long.bitCount(wp | bp) * Constants.PAWN +
+               Long.bitCount(wn | bn) * Constants.KNIGHT +
+               Long.bitCount(wb | bb) * Constants.BISHOP +
+               Long.bitCount(wr | br) * Constants.ROOK +
+               Long.bitCount(wq | bq) * Constants.QUEEN;
     }
 }

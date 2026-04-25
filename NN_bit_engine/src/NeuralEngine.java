@@ -53,6 +53,12 @@ public class NeuralEngine {
         }
     }
 
+    public double evaluatePosition(Position pos) throws OrtException {
+        try (OrtSession.Result result = runInference(pos, pos.legalMoves())) {
+            return ((float[][]) result.get(1).getValue())[0][0];
+        }
+    }
+
     public int topPolicyMove(Position pos, MoveList legal) throws OrtException {
         int[] top = topPolicyMoves(pos, legal, 1);
         return top.length == 0 ? 0 : top[0];
@@ -64,50 +70,65 @@ public class NeuralEngine {
         try (OrtSession.Result result = runInference(pos, legal)) {
             float[] logits = ((float[][]) result.get(0).getValue())[0];
 
-            Integer[] idx = new Integer[logits.length];
-            for (int i = 0; i < logits.length; i++) idx[i] = i;
-            Arrays.sort(idx, (a, b) -> Float.compare(logits[b], logits[a]));
-
-            int[] tmp = new int[Math.min(k, legal.count)];
+            int limit = Math.min(k, legal.count);
+            int[] bestMoves = new int[limit];
+            float[] bestScores = new float[limit];
             int found = 0;
 
-            for (int i : idx) {
-                if (i >= indexToMoveUci.length || indexToMoveUci[i] == null) continue;
-                String uci = indexToMoveUci[i];
+            // Walk all logits once and keep only the best legal moves found so far.
+            for (int i = 0; i < logits.length; i++) {
+                if (i >= indexToMoveUci.length) continue;
 
+                String uci = indexToMoveUci[i];
+                if (uci == null) continue;
+
+                int matchedMove = 0;
                 for (int j = 0; j < legal.count; j++) {
                     int move = legal.moves[j];
                     if (Move.toUci(move).equals(uci)) {
-                        boolean duplicate = false;
-                        for (int t = 0; t < found; t++) {
-                            if (tmp[t] == move) {
-                                duplicate = true;
-                                break;
-                            }
-                        }
-                        if (!duplicate) {
-                            tmp[found++] = move;
-                            if (found == tmp.length) {
-                                return Arrays.copyOf(tmp, found);
-                            }
-                        }
+                        matchedMove = move;
                         break;
                     }
                 }
-            }
-            return Arrays.copyOf(tmp, found);
-        }
-    }
 
-    // Returns a map from legal move -> rank score (higher is better), for top-K moves only.
-    // Example scores:
-    //   best gets 10000, next 9000, next 8000, ...
-    public Map<Integer, Integer> policyScores(Position pos, MoveList legal, int k) throws OrtException {
-        Map<Integer, Integer> out = new HashMap<>();
-        int[] top = topPolicyMoves(pos, legal, k);
-        for (int i = 0; i < top.length; i++) {
-            out.put(top[i], 10000 - (i * 1000));
+                if (matchedMove == 0) continue;
+
+                // Skip duplicates
+                boolean duplicate = false;
+                for (int t = 0; t < found; t++) {
+                    if (bestMoves[t] == matchedMove) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (duplicate) continue;
+
+                float score = logits[i];
+
+                // Insert into sorted top-K arrays
+                if (found < limit) {
+                    int insert = found;
+                    while (insert > 0 && score > bestScores[insert - 1]) {
+                        bestScores[insert] = bestScores[insert - 1];
+                        bestMoves[insert] = bestMoves[insert - 1];
+                        insert--;
+                    }
+                    bestScores[insert] = score;
+                    bestMoves[insert] = matchedMove;
+                    found++;
+                } else if (score > bestScores[limit - 1]) {
+                    int insert = limit - 1;
+                    while (insert > 0 && score > bestScores[insert - 1]) {
+                        bestScores[insert] = bestScores[insert - 1];
+                        bestMoves[insert] = bestMoves[insert - 1];
+                        insert--;
+                    }
+                    bestScores[insert] = score;
+                    bestMoves[insert] = matchedMove;
+                }
+            }
+
+            return found == limit ? bestMoves : java.util.Arrays.copyOf(bestMoves, found);
         }
-        return out;
     }
 }

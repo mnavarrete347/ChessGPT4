@@ -9,11 +9,10 @@ public final class Constants {
 
     // Guessing thread constants
     public static final int MAX_GUESSES = 10;
-    public static final int GUESS_REFINE_DEPTH = 4;
+    public static final int GUESS_REFINE_DEPTH = 5;
 
-    // Hashing constants
-    public static final int HASH_MOVE_TABLE_SIZE = 1 << 17;   // 131072 entries
-    public static final int POSITION_HISTORY_SIZE = 512;
+    // Neural-guided ordering
+    public static final int NN_TOP_K = 4;
 
     // Material values
     public static final int PAWN = 100;
