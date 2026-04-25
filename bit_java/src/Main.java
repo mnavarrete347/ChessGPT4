@@ -4,14 +4,12 @@ import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.util.Arrays;
 
 /**
  * UCI engine: uses alpha-beta pruning to find bestmove.
  * Legal move generation, promotion, and castling are included (no en-passant).
  */
 public class Main {
-    public static final boolean ENABLE_EN_PASSANT = false;
     // piece offsets and tables
     static final int[] ROOK_OFFSETS = {8, -8, 1, -1};
     static final int[] BISHOP_OFFSETS = {7, -7, 9, -9};
@@ -182,7 +180,7 @@ public class Main {
         out.flush();
     }
 
-    public static void runPerft(Position pos, int depth) {
+    private static void runPerft(Position pos, int depth) {
         long start = System.nanoTime();
         long nodes = perft(pos, depth);
         long end = System.nanoTime();
@@ -227,7 +225,8 @@ public class Main {
             i++;
             // FEN has 6 fields
             StringBuilder fen = new StringBuilder();
-            StringBuilder fenCastling = new StringBuilder();
+            StringBuilder fenCastling;
+            fenCastling = new StringBuilder();
             // remake the fen string
             for (int k = 0; k < 6 && i < tokens.length; k++, i++) {
                 if (k > 0) fen.append(' ');
@@ -523,9 +522,8 @@ public class Main {
         final boolean whiteToMove;
         final boolean whiteKingSideCastle, whiteQueenSideCastle;
         final boolean blackKingSideCastle, blackQueenSideCastle;
-        final int enPassantSq;
 
-        Position(long[] pieces, boolean wtm, boolean wK, boolean wQ, boolean bK, boolean bQ, int epSq) {
+        Position(long[] pieces, boolean wtm, boolean wK, boolean wQ, boolean bK, boolean bQ) {
             this.wp = pieces[0]; this.wn = pieces[1]; this.wb = pieces[2];
             this.wr = pieces[3]; this.wq = pieces[4]; this.wk = pieces[5];
             this.bp = pieces[6]; this.bn = pieces[7]; this.bb = pieces[8];
@@ -540,7 +538,6 @@ public class Main {
             this.whiteQueenSideCastle = wQ;
             this.blackKingSideCastle = bK;
             this.blackQueenSideCastle = bQ;
-            this.enPassantSq = epSq;
         }
 
         // black at top of board, white at bottom of board
@@ -551,7 +548,7 @@ public class Main {
         static Position fromFEN(String fen) {
             String[] fenTokens = fen.trim().split("\\s+");
             String placement = fenTokens[0];
-            boolean wtm = fenTokens.length > 1 ? fenTokens[1].equals("w") : true;
+            boolean wtm = fenTokens.length <= 1 || fenTokens[1].equals("w");
 
             long[] pieces = new long[12];
             int rank = 7, file = 0;
@@ -569,10 +566,8 @@ public class Main {
             }
 
             boolean[] cRights = setCastlingRights(fenTokens.length > 2 ? fenTokens[2] : "-");
-            String epToken = fenTokens.length > 3 ? fenTokens[3] : "-";
-            int epSq = epToken.equals("-") ? -1 : Move.squareIndex(epToken);
 
-            return new Position(pieces, wtm, cRights[0], cRights[1], cRights[2], cRights[3], epSq);
+            return new Position(pieces, wtm, cRights[0], cRights[1], cRights[2], cRights[3]);
         }
 
         private static int getPieceIndex(char c) {
@@ -626,32 +621,19 @@ public class Main {
                 }
             }
 
-            // 4. Handle En Passant Capture
-            int nextEpSq = -1;
-            if (ENABLE_EN_PASSANT && (movingPieceIdx == 0 || movingPieceIdx == 6) && to == enPassantSq) {
-                int capturedPawnSq = whiteToMove ? (to - 8) : (to + 8);
-                nextPieces[whiteToMove ? 6 : 0] ^= (1L << capturedPawnSq); // Remove enemy pawn
-            }
-
-            // 5. Move the piece
+            // 4. Move the piece
             nextPieces[movingPieceIdx] ^= moveMask;
 
-            // 6. Handle Promotion
+            // 5. Handle Promotion
             if (promo != 0 && (movingPieceIdx == 0 || movingPieceIdx == 6)) {
                 nextPieces[movingPieceIdx] ^= toBit; // Remove pawn from 'to' square
-                int promoIdx = (whiteToMove ? 0 : 6) + (promo == 1 ? 4 : promo == 4 ? 1 : promo == 2 ? 3 : 2);
                 // Note: Mapping our promo codes (1:q, 2:r, 3:b, 4:n) to our 12-index array
                 int actualPromoIdx = whiteToMove ? (promo == 1 ? 4 : promo == 2 ? 3 : promo == 3 ? 2 : 1)
                         : (promo == 1 ? 10 : promo == 2 ? 9 : promo == 3 ? 8 : 7);
                 nextPieces[actualPromoIdx] |= toBit;
             }
 
-            // 7. Handle Double Pawn Push (Set next EP Square)
-            if ((movingPieceIdx == 0 || movingPieceIdx == 6) && Math.abs(to - from) == 16) {
-                nextEpSq = (from + to) / 2;
-            }
-
-            // 8. Handle Castling Rights & Rook Movement
+            // 6. Handle Castling Rights & Rook Movement
             boolean wK = whiteKingSideCastle, wQ = whiteQueenSideCastle;
             boolean bK = blackKingSideCastle, bQ = blackQueenSideCastle;
 
@@ -666,13 +648,13 @@ public class Main {
             // Move Rooks for Castling
             if (movingPieceIdx == 5) { // White King
                 if (from == 4 && to == 6) nextPieces[3] ^= (1L << 7 | 1L << 5); // h1 to f1
-                if (from == 4 && to == 2) nextPieces[3] ^= (1L << 0 | 1L << 3); // a1 to d1
+                if (from == 4 && to == 2) nextPieces[3] ^= (1L | 1L << 3); // a1 to d1
             } else if (movingPieceIdx == 11) { // Black King
                 if (from == 60 && to == 62) nextPieces[9] ^= (1L << 63 | 1L << 61); // h8 to f8
                 if (from == 60 && to == 58) nextPieces[9] ^= (1L << 56 | 1L << 59); // a8 to d8
             }
 
-            return new Position(nextPieces, !whiteToMove, wK, wQ, bK, bQ, nextEpSq);
+            return new Position(nextPieces, !whiteToMove, wK, wQ, bK, bQ);
         }
 
         /**
@@ -762,9 +744,7 @@ public class Main {
 
             // 4. Attacked by Sliders (Rook, Bishop, Queen)
             // We reuse the slider logic but return true immediately upon a hit
-            if (checkSliderAttack(sq, attackedByWhite)) return true;
-
-            return false;
+            return checkSliderAttack(sq, attackedByWhite);
         }
 
         private boolean checkSliderAttack(int sq, boolean white) {
@@ -867,12 +847,6 @@ public class Main {
                 serializePawnMoves(moveList, capRight & ~RANK_8, 9, false);
                 serializePawnMoves(moveList, capRight & RANK_8, 9, true);
 
-                // En Passant
-                if (enPassantSq != -1) {
-                    long epBit = (1L << enPassantSq);
-                    if (((wp << 7) & epBit & ~FILE_H) != 0) moveList.add(Move.create(enPassantSq - 7, enPassantSq, 0));
-                    if (((wp << 9) & epBit & ~FILE_A) != 0) moveList.add(Move.create(enPassantSq - 9, enPassantSq, 0));
-                }
             } else {
                 // Black logic is mirrored (using >> and RANK_1/RANK_6)
                 long singlePush = (bp >> 8) & empty;
@@ -890,11 +864,6 @@ public class Main {
                 serializePawnMoves(moveList, capRight & ~RANK_1, -7, false);
                 serializePawnMoves(moveList, capRight & RANK_1, -7, true);
 
-                if (enPassantSq != -1) {
-                    long epBit = (1L << enPassantSq);
-                    if (((bp >> 9) & epBit & ~FILE_H) != 0) moveList.add(Move.create(enPassantSq + 9, enPassantSq, 0));
-                    if (((bp >> 7) & epBit & ~FILE_A) != 0) moveList.add(Move.create(enPassantSq + 7, enPassantSq, 0));
-                }
             }
         }
 

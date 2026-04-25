@@ -8,42 +8,54 @@ Kaung · Martin · Daniel · Kevyn · Victor
 
 ## Overview
 
-ChessGPT4 is a UCI-compatible chess engine that combines a classical alpha-beta negamax search with an ONNX neural network. The engine communicates with any standard chess GUI (Arena, Cute Chess, etc.) over stdin/stdout using the Universal Chess Interface (UCI) protocol.
+ChessGPT4 is a UCI-compatible chess engine that combines a classical search pipeline with neural-network move guidance. It communicates with standard chess GUIs such as Arena or Cute Chess over stdin/stdout using the Universal Chess Interface (UCI) protocol.
+
+At a high level, the engine:
+
+1. receives a position from the GUI
+2. searches for the best move under the current limit
+3. returns `bestmove`
+4. uses the opponent's time to prepare likely replies for the next turn
 
 ---
 
-## Architecture
+## Main Flow
 
-### Board Representation
-The engine uses **bitboards** — one 64-bit integer per piece type per color (12 total). Legal move generation is performed by first generating pseudo-legal moves and filtering out those that leave the king in check. Move encoding is a packed integer: bits 0–5 = from square, 6–11 = to square, 12–14 = promotion piece.
+### 1. Initialization
+On startup, the engine enters the UCI loop and waits for commands from the host GUI.
 
-### Evaluation
-Positions are scored using **tapered piece-square tables** that interpolate between midgame and endgame values based on remaining material (the phase). In the endgame (total material below a threshold), a king centrality bonus is added to encourage active king play.
+If the neural model files are available, the engine loads them so neural guidance can be used during move selection and background reply preparation.
 
-### Search
-The search is **iterative-deepening negamax with alpha-beta pruning**. Move ordering uses:
-- The previous iteration's best move (PV move) at priority 20000
-- An optional NN hint move at priority 10000
-- MVV-LVA for captures, flat bonus for promotions
+### 2. Position Setup
+The GUI sends either:
+- `position startpos ...`
+- or `position fen ...`
 
-The search runs for 85% of the allocated move time to leave a safety margin.
+The engine rebuilds the current board state from that command and stores the resulting position as the starting point for the next search.
 
-### Neural Network
-An ONNX model provides two outputs:
-- **Policy head** — logits over the full move vocabulary, used to select a hint move
-- **Value head** — a scalar in (−1, +1) representing the expected outcome from the side to move's perspective
+### 3. Search
+When the GUI sends `go`, the engine:
+- reads the requested search limit
+- stops any previous background guessing work
+- checks whether a precomputed reply exists for the opponent's most recent move
+- runs the main search
+- returns the selected move with `bestmove`
 
-The network takes a `[1, 13, 8, 8]` input tensor: one binary plane per piece type (channels 0–11) plus a legal-move destination mask (channel 12).
+The main search uses iterative deepening and move ordering so that promising moves are explored earlier.
 
-ONNX Runtime's internal thread pools are capped to half the available logical cores to prevent inference calls from saturating the CPU.
+### 4. Background Guessing
+After sending its move, the engine starts a low-priority background thread while the opponent is thinking.
 
-### Background Guessing
-After the engine plays its move, a low-priority daemon thread (`GuessingThread`) runs during the opponent's clock. It:
-1. Ranks the opponent's legal moves by PST plausibility
-2. For each top candidate, runs one NN forward pass to pre-compute our best reply
-3. Stores up to `MAX_GUESSES` (opponent move → our reply) pairs in a `GuessTable`
+That thread:
+- considers likely opponent replies
+- uses the neural network to suggest candidate answers
+- refines those answers with a short search
+- stores them for possible reuse on the next turn
 
-When the next `go` command arrives, the engine detects the opponent's actual move by comparing board states, looks it up in the table, and if found, passes the pre-computed reply as an `nnHint` to the search — promoting it to the front of move ordering at every depth.
+If the opponent later plays one of those predicted moves, the stored reply can be reused as a hint for the next search.
+
+### 5. Repetition Avoidance
+Before finalizing a move, the engine checks whether the selected move would repeat a previously seen position. If needed, it switches to a reasonable alternative instead of launching an expensive second search.
 
 ---
 
@@ -51,32 +63,29 @@ When the next `go` command arrives, the engine detects the opponent's actual mov
 
 | File | Responsibility |
 |---|---|
-| `Main.java` | UCI loop, guessing thread lifecycle, repetition detection |
-| `Search.java` | Negamax, move ordering, evaluation, `GuessTable`, `GuessingThread`, `detectOpponentMove` |
-| `NeuralEngine.java` | ONNX session management, policy head, value head |
-| `Position.java` | Immutable board state, `makeMove`, legal/pseudo-legal move generation, attack detection |
-| `Move.java` | Packed-int move encoding and UCI string conversion |
-| `MoveList.java` | Fixed-capacity move buffer (256 slots) |
-| `Constants.java` | PSTs, material values, phase weights, bitboard masks, attack tables |
-| `SearchResult.java` | Lightweight record: `(int move, int score)` |
+| `Main.java` | UCI loop, game state updates, search startup, background guessing lifecycle |
+| `Search.java` | Main search, move ordering, repetition handling, guess table, guessing thread |
+| `NeuralEngine.java` | ONNX model loading and neural move guidance |
+| `Position.java` | Board state, move generation, move application, attack checks |
+| `Move.java` | Packed move representation and UCI conversion |
+| `MoveList.java` | Fixed-capacity move buffer |
+| `Constants.java` | Search constants, scoring tables, masks, and attack tables |
 
 ---
 
 ## Building and Running
 
-**Requirements:** JDK 21+, ONNX Runtime 1.24.3 (`lib/onnxruntime-1.24.3.jar`), engine model files in `models/`.
+**Requirements:** JDK 21+, ONNX Runtime jar, model files in `models/`.
 
 ```bash
 # Compile
 javac -cp "lib\onnxruntime-1.24.3.jar" -d bin src\*.java
 
-# Run (UCI mode — connect via Arena or Cute Chess)
+# Run
 java -cp "bin;lib\onnxruntime-1.24.3.jar" Main
-
-# Test client
-javac -d bin src\UciTestClient.java
-java -cp bin UciTestClient
 ```
+
+Then connect the engine to a UCI-compatible GUI.
 
 ---
 
@@ -85,10 +94,10 @@ java -cp bin UciTestClient
 | Command | Behaviour |
 |---|---|
 | `uci` | Returns engine ID and `uciok` |
-| `isready` | Loads ONNX model, returns `readyok` |
-| `ucinewgame` | Resets board, clears guessing state |
-| `position [startpos\|fen ...] [moves ...]` | Sets up the board |
-| `go movetime N` | Searches for `N` ms, outputs `bestmove` |
+| `isready` | Returns `readyok` |
+| `ucinewgame` | Resets internal game state |
+| `position [startpos\|fen ...] [moves ...]` | Sets up the current board |
+| `go movetime N` | Searches for approximately `N` ms |
 | `go depth N` | Searches to fixed depth |
-| `perft` | Runs move-generation correctness test to depth 6 |
-| `quit` | Stops guessing thread and exits |
+| `perft N` | Runs move-generation testing |
+| `quit` | Stops background work and exits |

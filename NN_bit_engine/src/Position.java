@@ -85,7 +85,7 @@ public final class Position {
             case 2 -> Constants.BISHOP + Constants.BISHOP_PST[t];
             case 3 -> Constants.ROOK   + Constants.ROOK_PST[t];
             case 4 -> Constants.QUEEN  + Constants.QUEEN_PST[t];
-            default-> Constants.KING   + Constants.KING_PST[t];
+            default -> Constants.KING  + Constants.KING_PST[t];
         };
         return w ? s : -s;
     }
@@ -95,22 +95,24 @@ public final class Position {
     // -------------------------------------------------------------------------
 
     public Position makeMove(int move) {
-        long[] next = {wp,wn,wb,wr,wq,wk,bp,bn,bb,br,bq,bk};
+        long[] next = {wp, wn, wb, wr, wq, wk, bp, bn, bb, br, bq, bk};
         int from  = Move.getFrom(move), to = Move.getTo(move), promo = Move.getPromo(move);
         long fBit = 1L << from, tBit = 1L << to;
         int nScore = score;
 
-        // Identify moving piece
         int movIdx = -1;
-        for (int i = 0; i < 12; i++) if ((next[i] & fBit) != 0) { movIdx = i; break; }
+        for (int i = 0; i < 12; i++) {
+            if ((next[i] & fBit) != 0) {
+                movIdx = i;
+                break;
+            }
+        }
         if (movIdx == -1) {
             throw new IllegalStateException("No moving piece found for move: " + move);
-            // protects against annoying crashes
         }
 
         nScore -= value(movIdx, from);
 
-        // Capture
         if ((allPieces & tBit) != 0) {
             for (int i = 0; i < 12; i++) {
                 if ((next[i] & tBit) != 0) {
@@ -121,11 +123,9 @@ public final class Position {
             }
         }
 
-        // Move piece
         next[movIdx] ^= fBit | tBit;
         nScore += value(movIdx, to);
 
-        // Promotion
         if (promo != 0 && (movIdx == 0 || movIdx == 6)) {
             nScore -= value(movIdx, to);
             next[movIdx] ^= tBit;
@@ -136,9 +136,6 @@ public final class Position {
             nScore += value(pIdx, to);
         }
 
-        // Update castling rights
-        // Bug fix: original used movIdx==5 instead of checking from==4 for the king square,
-        // which incorrectly revoked rights when a non-king piece on the king square moved.
         boolean wK = whiteKingSideCastle, wQ = whiteQueenSideCastle;
         boolean bK = blackKingSideCastle, bQ = blackQueenSideCastle;
         if (from == 4  || to == 4)  { wK = false; wQ = false; }
@@ -148,21 +145,21 @@ public final class Position {
         if (from == 56 || to == 56) bQ = false;
         if (from == 63 || to == 63) bK = false;
 
-        // Castling rook moves
+        // Castling is encoded as a king move; the rook move is applied here.
         if (movIdx == 5 && from == 4) {
             if (to == 6) {
-                nScore += value(3,5) - value(3,7);
+                nScore += value(3, 5) - value(3, 7);
                 next[3] ^= (1L << 7) | (1L << 5);
             } else if (to == 2) {
-                nScore += value(3,3) - value(3,0);
+                nScore += value(3, 3) - value(3, 0);
                 next[3] ^= 1L | (1L << 3);
             }
         } else if (movIdx == 11 && from == 60) {
             if (to == 62) {
-                nScore += value(9,61) - value(9,63);
+                nScore += value(9, 61) - value(9, 63);
                 next[9] ^= (1L << 63) | (1L << 61);
             } else if (to == 58) {
-                nScore += value(9,59) - value(9,56);
+                nScore += value(9, 59) - value(9, 56);
                 next[9] ^= (1L << 56) | (1L << 59);
             }
         }
@@ -178,7 +175,7 @@ public final class Position {
 
     public MoveList pseudoLegalMoves() {
         MoveList list = new MoveList();
-        boolean  w    = whiteToMove;
+        boolean w = whiteToMove;
         genPawn(list, w);
         genKnight(list, w);
         genSliders(list, w, Constants.BISHOP_OFFSETS, w ? wb : bb);
@@ -188,6 +185,8 @@ public final class Position {
         return list;
     }
 
+    // Pseudo-legal moves ignore king safety; legalMoves filters out moves
+    // that leave the side to move in check.
     public MoveList legalMoves() {
         MoveList pseudo = pseudoLegalMoves();
         MoveList legal  = new MoveList();
@@ -239,28 +238,32 @@ public final class Position {
 
     private void genKing(MoveList list, boolean w) {
         long kingBoard = w ? wk : bk;
-        // If the king is missing, do not attempt to generate moves
         if (kingBoard == 0) return;
 
-        int  from     = Long.numberOfTrailingZeros(kingBoard);
+        int from = Long.numberOfTrailingZeros(kingBoard);
         long friendly = w ? whitePieces : blackPieces;
 
         serializeMoves(list, from, Constants.KING_ATTACKS[from] & ~friendly);
-        //  Castling logic
+
+        // Castling requires empty path squares and safe transit squares.
         if (w) {
-            if (whiteKingSideCastle  && (allPieces & 0x60L) == 0
-                    && !isSquareAttacked(4, false) && !isSquareAttacked(5, false) && !isSquareAttacked(6, false))
+            if (whiteKingSideCastle && (allPieces & 0x60L) == 0
+                    && !isSquareAttacked(4, false) && !isSquareAttacked(5, false) && !isSquareAttacked(6, false)) {
                 list.add(Move.create(4, 6, 0));
+            }
             if (whiteQueenSideCastle && (allPieces & 0x0EL) == 0
-                    && !isSquareAttacked(4, false) && !isSquareAttacked(3, false) && !isSquareAttacked(2, false))
+                    && !isSquareAttacked(4, false) && !isSquareAttacked(3, false) && !isSquareAttacked(2, false)) {
                 list.add(Move.create(4, 2, 0));
+            }
         } else {
-            if (blackKingSideCastle  && (allPieces & 0x6000000000000000L) == 0
-                    && !isSquareAttacked(60, true) && !isSquareAttacked(61, true) && !isSquareAttacked(62, true))
+            if (blackKingSideCastle && (allPieces & 0x6000000000000000L) == 0
+                    && !isSquareAttacked(60, true) && !isSquareAttacked(61, true) && !isSquareAttacked(62, true)) {
                 list.add(Move.create(60, 62, 0));
+            }
             if (blackQueenSideCastle && (allPieces & 0x0E00000000000000L) == 0
-                    && !isSquareAttacked(60, true) && !isSquareAttacked(59, true) && !isSquareAttacked(58, true))
+                    && !isSquareAttacked(60, true) && !isSquareAttacked(59, true) && !isSquareAttacked(58, true)) {
                 list.add(Move.create(60, 58, 0));
+            }
         }
     }
 
@@ -340,8 +343,8 @@ public final class Position {
                 int nxt = cur + offset;
                 if (nxt < 0 || nxt >= 64 || isWrap(cur, nxt, offset)) break;
                 long b = 1L << nxt;
-                if ((straight   & b) != 0) return true;
-                if ((allPieces  & b) != 0) break;
+                if ((straight & b) != 0) return true;
+                if ((allPieces & b) != 0) break;
                 cur = nxt;
             }
         }
@@ -351,7 +354,7 @@ public final class Position {
                 int nxt = cur + offset;
                 if (nxt < 0 || nxt >= 64 || isWrap(cur, nxt, offset)) break;
                 long b = 1L << nxt;
-                if ((diagonal  & b) != 0) return true;
+                if ((diagonal & b) != 0) return true;
                 if ((allPieces & b) != 0) break;
                 cur = nxt;
             }
@@ -359,6 +362,8 @@ public final class Position {
         return false;
     }
 
+    // Prevent slider rays from wrapping around the board edge when moving
+    // horizontally or diagonally using square-index arithmetic.
     private boolean isWrap(int from, int to, int offset) {
         int diff = Math.abs((to & 7) - (from & 7));
         return Math.abs(offset) == 8 ? diff != 0 : diff != 1;
@@ -404,10 +409,10 @@ public final class Position {
     }
 
     public int totalMaterial() {
-        return  Long.bitCount(wp | bp) * Constants.PAWN +
-                Long.bitCount(wn | bn) * Constants.KNIGHT +
-                Long.bitCount(wb | bb) * Constants.BISHOP +
-                Long.bitCount(wr | br) * Constants.ROOK +
-                Long.bitCount(wq | bq) * Constants.QUEEN;
+        return Long.bitCount(wp | bp) * Constants.PAWN +
+               Long.bitCount(wn | bn) * Constants.KNIGHT +
+               Long.bitCount(wb | bb) * Constants.BISHOP +
+               Long.bitCount(wr | br) * Constants.ROOK +
+               Long.bitCount(wq | bq) * Constants.QUEEN;
     }
 }

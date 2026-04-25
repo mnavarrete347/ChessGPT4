@@ -3,31 +3,19 @@ private static final int[] moveMemory = new int[MEMORY_SIZE];
 private static int memoryIndex = 0;
 
 void main() throws Exception {
-    System.out.println("info string user.dir=" + System.getProperty("user.dir"));
-    System.out.println("info string MOVE_MAP_PATH=" + Constants.MOVE_MAP_PATH);
-    System.out.println("info string MODEL_PATH=" + Constants.MODEL_PATH);
-    System.out.println("info string moveMapExists=" + new java.io.File(Constants.MOVE_MAP_PATH).exists());
-    System.out.println("info string modelExists=" + new java.io.File(Constants.MODEL_PATH).exists());
-
-    //debugKiwipeteRoot();
-    //debugKiwipeteDivideDepth2();
-
     BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
     PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out)), true);
 
     Position pos = Position.startPos();
     NeuralEngine nn = tryLoadNeuralEngine();
-    if (nn != null) {
-        System.out.println("info string Neural Engine loaded.");
-    } else {
-        System.out.println("info string Neural Engine unavailable.");
-    }
     Position posAfterOurMove = null;
 
-    // Active guess table populated while the opponent thinks.
-    // Null when the engine has not yet played its first move, or NN is absent.
     Search.GuessTable activeGuessTable = null;
     Search.GuessingThread activeGuessingThread = null;
+
+    if (nn == null) {
+        System.out.println("info string nn unavailable");
+    }
 
     String line;
     while ((line = in.readLine()) != null) {
@@ -60,43 +48,35 @@ void main() throws Exception {
             int opponentMove = Search.detectOpponentMove(posAfterOurMove, pos);
             int nnHint = 0;
 
-            // 1. Resolve Guessing Table
             if (opponentMove != 0 && activeGuessTable != null) {
                 nnHint = activeGuessTable.lookupReply(opponentMove);
                 if (nnHint != 0) {
-                    System.out.println("info string Guess hit! opp=" + Move.toUci(opponentMove) + " hint=" + Move.toUci(nnHint));
-                }
-                else {
-                    System.out.println("info string Guess miss for opp=" + Move.toUci(opponentMove));
+//                    System.out.println("info string guess hit opp="
+//                            + Move.toUci(opponentMove) + " hint=" + Move.toUci(nnHint));
                 }
             }
 
-            // 2. Perform Search
-            int finalMove = freshSearch(pos, nnHint);
+            int finalMove = freshSearch(pos, nnHint, nn);
 
-            // 3. Forced Variation on Repetition
             if (isRepeatingPattern() && finalMove != 0) {
-//                System.out.println("info string Repetition detected, forcing variation.");
-                // Re-run a very short search without the hint to find an alternative
-                Search.startTime = System.currentTimeMillis();
-                Search.timeLimit = 500;
-                finalMove = Search.iterativeNegamax(pos, 0);
+                int alternative = Search.findBestNonRepeatingMove(pos, finalMove, nnHint, nn);
+                if (alternative != 0 && alternative != finalMove) {
+//                    System.out.println("info string repetition avoid old="
+//                            + Move.toUci(finalMove) + " new=" + Move.toUci(alternative));
+                    finalMove = alternative;
+                }
             }
 
-            // 4. Output and Update
             if (finalMove == 0) {
                 out.println("bestmove 0000");
             } else {
                 out.println("bestmove " + Move.toUci(finalMove));
                 recordMove(finalMove);
-                // Crucial: Only update internal state if a valid move exists
                 posAfterOurMove = pos.makeMove(finalMove);
                 pos = posAfterOurMove;
             }
 
-            // 5. Start Background Thinking
             if (nn != null && finalMove != 0) {
-                System.out.println("info string Starting guess thread after " + Move.toUci(finalMove));
                 activeGuessTable = new Search.GuessTable();
                 activeGuessingThread = new Search.GuessingThread(posAfterOurMove, nn, activeGuessTable);
                 activeGuessingThread.start();
@@ -106,7 +86,8 @@ void main() throws Exception {
             String[] parts = line.split("\\s+");
             int depth = 1;
             if (parts.length >= 2) depth = Integer.parseInt(parts[1]);
-            runPerft(pos, depth);
+            runPerft(pos, depth, out);
+
         } else if (line.equals("quit")) {
             stopGuessing(activeGuessingThread, activeGuessTable);
             break;
@@ -115,7 +96,6 @@ void main() throws Exception {
     out.flush();
 }
 
-// Signals the guessing thread to stop and waits briefly for it to exit.
 private static void stopGuessing(Search.GuessingThread thread, Search.GuessTable table) {
     if (table != null) table.finish();
     if (thread != null) {
@@ -126,12 +106,10 @@ private static void stopGuessing(Search.GuessingThread thread, Search.GuessTable
     }
 }
 
-// Sets up timing and runs the parallel search.
-// nnHint (may be 0) is forwarded to both the negamax and NN threads.
-private static int freshSearch(Position pos, int nnHint) {
+private static int freshSearch(Position pos, int nnHint, NeuralEngine nn) {
     Search.startTime = System.currentTimeMillis();
-    Search.timeLimit = (long) (Search.moveTimeMs * 0.85);
-    return Search.iterativeNegamax(pos, nnHint);
+    Search.timeLimit = (long) (Search.moveTimeMs * 0.98);
+    return Search.iterativeNegamax(pos, nnHint, nn);
 }
 
 // -------------------------------------------------------------------------
@@ -156,35 +134,37 @@ static Position parsePosition(String cmd, Position currentPos) {
         pos = Position.fromFEN(fen.toString());
     }
 
-    if (i < tokens.length && tokens[i].equals("moves"))
+    if (i < tokens.length && tokens[i].equals("moves")) {
         for (i++; i < tokens.length; i++) pos = pos.makeMove(Move.fromUci(tokens[i]));
+    }
     return pos;
 }
 
 static void parseGo(String cmd) {
     String[] tokens = cmd.trim().split("\\s+");
     Search.moveTimeMs = 10_000;
-    Search.maxDepth = 100;
+    Search.MAX_DEPTH = 100;
+
     for (int i = 1; i < tokens.length; i++) {
         switch (tokens[i].toLowerCase()) {
             case "movetime" -> {
                 if (i + 1 < tokens.length) Search.moveTimeMs = Long.parseLong(tokens[++i]);
             }
             case "depth" -> {
-                if (i + 1 < tokens.length) Search.maxDepth = Integer.parseInt(tokens[++i]);
+                if (i + 1 < tokens.length) {
+                    int requested = Integer.parseInt(tokens[++i]);
+                    Search.MAX_DEPTH = Math.max(1, Math.min(64, requested));
+                }
             }
         }
     }
 }
 
-// -------------------------------------------------------------------------
-// Move memory (repetition detection)
-// -------------------------------------------------------------------------
-
 static void recordMove(int move) {
     moveMemory[memoryIndex++ % MEMORY_SIZE] = move;
 }
 
+// Cheap ABAB repetition detector used only as a root-level escape hatch.
 static boolean isRepeatingPattern() {
     if (memoryIndex < 6) return false;
     int a = moveMemory[(memoryIndex - 1) % MEMORY_SIZE];
@@ -194,14 +174,10 @@ static boolean isRepeatingPattern() {
     return a == c && b == d;
 }
 
-// -------------------------------------------------------------------------
-// Perft
-// -------------------------------------------------------------------------
-
-static void runPerft(Position pos, int depth) {
+static void runPerft(Position pos, int depth, PrintWriter out) {
     long start = System.nanoTime(), nodes = perft(pos, depth), end = System.nanoTime();
     double secs = (end - start) / 1e9;
-    System.out.printf("Depth %d: %d nodes in %.3f s (NPS: %d)%n", depth, nodes, secs, (long) (nodes / secs));
+    out.printf("Depth %d: %d nodes in %.3f s (NPS: %d)%n", depth, nodes, secs, (long) (nodes / secs));
 }
 
 static long perft(Position pos, int depth) {
@@ -212,10 +188,6 @@ static long perft(Position pos, int depth) {
     return nodes;
 }
 
-// -------------------------------------------------------------------------
-// Neural engine loader
-// -------------------------------------------------------------------------
-
 @SuppressWarnings("unchecked")
 private static NeuralEngine tryLoadNeuralEngine() {
     try {
@@ -224,37 +196,9 @@ private static NeuralEngine tryLoadNeuralEngine() {
                 new FileInputStream(Constants.MOVE_MAP_PATH))) {
             moveMap = (Map<String, Integer>) ois.readObject();
         }
-        NeuralEngine engine = new NeuralEngine(Constants.MODEL_PATH, moveMap);
-        //System.out.println("info string Neural Engine loaded.");
-        return engine;
+        return new NeuralEngine(Constants.MODEL_PATH, moveMap);
     } catch (Exception e) {
-        System.out.println("info string Neural Engine unavailable: " + e);
+        System.out.println("info string nn unavailable: " + e.getClass().getSimpleName());
         return null;
     }
-}
-
-
-static void debugKiwipeteRoot() {
-    Position pos = Position.fromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
-    MoveList moves = pos.legalMoves();
-    System.out.println("Kiwipete legal move count = " + moves.count);
-    for (int i = 0; i < moves.count; i++) {
-        System.out.println(Move.toUci(moves.moves[i]));
-    }
-}
-
-static void debugKiwipeteDivideDepth2() {
-    Position pos = Position.fromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
-    MoveList moves = pos.legalMoves();
-
-    long total = 0;
-    System.out.println("Kiwipete divide depth 2:");
-    for (int i = 0; i < moves.count; i++) {
-        int move = moves.moves[i];
-        Position child = pos.makeMove(move);
-        long count = perft(child, 1);   // depth 2 total = sum of each child’s legal moves
-        total += count;
-        System.out.println(Move.toUci(move) + " " + count);
-    }
-    System.out.println("Total " + total);
 }

@@ -4,4 +4,6 @@ public final class MoveList {
     public int count = 0;
 
     public void add(int move) { moves[count++] = move; }
+
+    public void clear() { count = 0; }
 }

@@ -2,134 +2,86 @@
 sequenceDiagram
     autonumber
 
-    actor Host as Host / GUI (Arena)
+    actor Host as Host / GUI
     participant Main as Main (UCI Loop)
     participant Search as Search
-    participant NN as NeuralEngine (ONNX)
+    participant NN as NeuralEngine
     participant Position as Position
 
-    %% ── Initialization ──────────────────────────────────────────────────────
-    Note over Host, Position: Initialization
+    Note over Host, Position: Engine startup and game flow
 
-    Host ->> Main: "uci"
-    Main -->> Host: "id name team_4_engine"
-    Main -->> Host: "id author ..."
-    Main -->> Host: "uciok"
+    Host ->> Main: uci
+    Main -->> Host: id name / id author
+    Main -->> Host: uciok
 
-    Host ->> Main: "isready"
-    Main ->> NN: tryLoadNeuralEngine()
-    Note right of NN: Loads ONNX model + move map.<br/>Caps ONNX thread pools to<br/>½ logical cores to limit CPU spike.
-    NN -->> Main: NeuralEngine instance (or null)
-    Main -->> Host: "readyok"
+    Host ->> Main: isready
+    Main ->> NN: load model resources if available
+    NN -->> Main: neural engine ready (or unavailable)
+    Main -->> Host: readyok
 
-    %% ── New Game ────────────────────────────────────────────────────────────
-    Note over Host, Position: New Game Setup
-
-    Host ->> Main: "ucinewgame"
-    Main ->> Main: stopGuessing(activeGuessingThread)
+    Host ->> Main: ucinewgame
+    Main ->> Main: reset engine state
     Main ->> Position: Position.startPos()
-    Position -->> Main: starting Position
-    Main ->> Main: reset posAfterOurMove, memoryIndex
+    Position -->> Main: initial position
 
-    %% ── Position Update ─────────────────────────────────────────────────────
-    Note over Host, Position: Board Update
-
-    Host ->> Main: "position [startpos | fen ...] [moves ...]"
-    Main ->> Main: parsePosition()
-    loop for each move token
-        Main ->> Position: pos.makeMove(Move.fromUci(token))
-        Position -->> Main: new Position
+    Host ->> Main: position [startpos | fen ...] [moves ...]
+    Main ->> Main: parsePosition(...)
+    loop apply moves from command
+        Main ->> Position: makeMove(...)
+        Position -->> Main: updated position
     end
 
-    %% ── Go / Search ─────────────────────────────────────────────────────────
-    Note over Host, NN: Search
+    Host ->> Main: go movetime N / go depth N
+    Main ->> Main: parseGo(...)
+    Main ->> Main: stop previous background guessing
 
-    Host ->> Main: "go movetime N"
-    Main ->> Main: parseGo() — sets Search.moveTimeMs, Search.maxDepth
-    Main ->> Main: stopGuessing(activeGuessingThread)
+    Main ->> Search: detectOpponentMove(previousPosition, currentPosition)
+    Search -->> Main: opponent move (if identified)
 
-    Main ->> Search: detectOpponentMove(posAfterOurMove, pos)
-    Note right of Search: Iterates legal moves from posAfterOurMove.<br/>Finds which move produced the current pos.
-    Search -->> Main: opponentMove (int, may be 0)
-
-    alt opponentMove found in GuessTable
-        Main ->> Main: nnHint = guessTable.lookupReply(opponentMove)
-        Note right of Main: Pre-computed reply from GuessingThread<br/>is promoted to front of move ordering.
-    else not found or no table
-        Main ->> Main: nnHint = 0
+    alt precomputed reply exists
+        Main ->> Main: use stored reply as search hint
+    else no stored reply
+        Main ->> Main: search without reply hint
     end
 
-    Main ->> Search: freshSearch(pos, nnHint)
-    Note right of Search: startTime set, timeLimit = moveTimeMs × 0.85
+    Main ->> Search: iterativeNegamax(currentPosition, hint)
 
-    Search ->> Search: iterativeNegamax(pos, nnHint)
-
-    loop iterative deepening: depth 1 → maxDepth
-        Search ->> Search: findBest(pos, depth, prevBest, nnHint)
-        Note right of Search: orderMoves(): prevBest → 20k,<br/>nnHint → 10k, captures/promos by MVV-LVA.
-
-        loop for each root move
-            Search ->> Position: pos.makeMove(move)
-            Position -->> Search: next Position
-            Search ->> Search: negamax(next, depth-1, alpha, beta)
-
-            loop recursive negamax
-                Search ->> Position: pos.pseudoLegalMoves()
-                Position -->> Search: MoveList
-                Search ->> Position: pos.makeMove(move) → next
-                Position -->> Search: next Position
-                Search ->> Position: next.inCheck(!next.whiteToMove)
-                Position -->> Search: bool (legality filter)
-                Search ->> Search: alpha-beta pruning
-                Note right of Search: Leaf: evaluate(pos)<br/>= pos.score + endgame king bonus<br/>if totalMaterial < 2200
-            end
-        end
-
-        alt isTimeUp()
-            Search ->> Search: break — discard partial result
-        else depth complete
-            Search ->> Search: bestMove = candidate
+    loop iterative deepening
+        Search ->> Search: order root moves
+        loop root moves
+            Search ->> Position: makeMove(...)
+            Position -->> Search: child position
+            Search ->> Search: recursive negamax
         end
     end
 
-    Search -->> Main: bestMove (int)
+    Search -->> Main: best move
 
-    alt isRepeatingPattern() (ABAB detected in moveMemory)
-        Main ->> Search: iterativeNegamax(pos, 0) with 500ms limit
-        Search -->> Main: variation move
+    alt selected move would repeat a known position
+        Main ->> Search: choose a non-repeating alternative
+        Search -->> Main: fallback move
     end
 
-    Main ->> Main: recordMove(finalMove)
-    Main -->> Host: "bestmove e2e4"
-    Main ->> Position: pos.makeMove(finalMove)
-    Position -->> Main: posAfterOurMove
+    Main -->> Host: bestmove ...
+    Main ->> Position: makeMove(bestmove)
+    Position -->> Main: new current position
 
-    %% ── Background Guessing ─────────────────────────────────────────────────
-    Note over Main, NN: Background Guessing (opponent's clock)
+    Note over Main, NN: Background work during opponent's turn
 
-    Main ->> Main: new GuessTable()
-    Main ->> Main: new GuessingThread(posAfterOurMove, nn, table).start()
+    Main ->> Main: create GuessTable
+    Main ->> Main: start GuessingThread
 
-    Note over Main, NN: GuessingThread runs at MIN_PRIORITY as daemon
-
-    loop up to MAX_GUESSES times (while !table.isDone())
-        Main ->> Position: posAfterOurMove.legalMoves()
-        Position -->> Main: opponent MoveList (sorted by PST plausibility)
-        Main ->> Position: posAfterOurMove.makeMove(opponentMove)
-        Position -->> Main: afterOpponent Position
-        Main ->> NN: topPolicyMove(afterOpponent, ourMoves)
-        Note right of NN: Single ONNX forward pass.<br/>Returns highest-logit legal reply.<br/>Thread pools capped → ~50% CPU.
-        NN -->> Main: reply move (int)
-        Main ->> Main: table.opponentGuesses[i] = opponentMove<br/>table.replyMoves[i] = reply
-        Main ->> Main: Thread.yield()
+    loop likely opponent replies
+        Main ->> Position: makeMove(opponent candidate)
+        Position -->> Main: reply position
+        Main ->> NN: suggest reply move
+        NN -->> Main: candidate reply
+        Main ->> Search: optional short refinement
+        Search -->> Main: refined reply
+        Main ->> Main: store predicted opponent move -> reply
     end
 
-    Note over Main, NN: Thread sleeps until next "go" arrives,<br/>then table.finish() is called.
-
-    %% ── Shutdown ────────────────────────────────────────────────────────────
-    Note over Host, Main: Shutdown
-
-    Host ->> Main: "quit"
-    Main ->> Main: stopGuessing(activeGuessingThread, activeGuessTable)
-    Main ->> Main: cleanup and exit
+    Host ->> Main: quit
+    Main ->> Main: stop background guessing
+    Main -->> Host: exit
 ```
